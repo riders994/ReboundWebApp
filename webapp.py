@@ -10,6 +10,7 @@ from keras.optimizers import SGD, Adadelta, Adagrad
 import os
 import random
 from flask_cors import CORS, cross_origin
+from sklearn.ensemble import RandomForestClassifier
 
 # closer = ((df['pre_HDist'] < df['pos_HDist']).astype(int) - 0.5) * 2
 # move = nums[:,[0,1]] - nums[:,[4,5]]
@@ -70,37 +71,38 @@ def boxgen(arr):
     boxes = np.array(dbox + obox)
     return boxes
 
-class normer(object):
-
-    def __init__(self):
-        pass
-
-    def fit(self, arr):
-        self.ms = arr.mean(axis = 0)
-        self.sds = arr.std(axis = 0)
-
-    def transform(self, arr):
-        return (arr - self.ms)/self.sds
-
-    def fit_transform(self, arr):
-        self.fit(arr)
-        return self.transform(arr)
-
-
-
+# class normer(object):
+#
+#     def __init__(self):
+#         pass
+#
+#     def fit(self, arr):
+#         self.ms = arr.mean(axis = 0)
+#         self.sds = arr.std(axis = 0)
+#
+#     def transform(self, arr):
+#         return (arr - self.ms)/self.sds
+#
+#     def fit_transform(self, arr):
+#         self.fit(arr)
+#         return self.transform(arr)
+#
+#
+#
 class inputDecode(object):
 
-    def __init__(self, posModel, model, normer):
+    def __init__(self, posModel, model, norm):
         self.posModel = posModel
         self.model = model
-        self.normer = normer
+        self.normer = norm
 
     def CreatePre(self, df):
         self.pre = features(df)
         self.preArr = self.pre[['x','y']]
 
     def CreatePos(self):
-        self.posArr = self.posModel.predict(self.normer.transform(self.pre.values), batch_size = 40)
+        vals = (self.pre.values - self.normer[0])/self.normer[1]
+        self.posArr = self.posModel.predict(vals, batch_size = 40)
         self.pos = self.pre.copy()
         self.pos['x'] = self.posArr[:,0]
         self.pos['y'] = self.posArr[:,1]
@@ -117,17 +119,19 @@ class inputDecode(object):
     def Modeling(self, fitModel):
         self.modIn = np.concatenate([self.pre.values, self.pos[['x', 'y', 'HDist', 'Angle', 'CosSim', 'Box', 'MoveV']].values], axis = 1)
         self.model = fitModel
-        self.pos['probability'] = self.model.predict(self.modIn)
+        probs = self.model.predict(self.modIn)
+        e_x = np.exp(preds)
+        self.pos['probability'] = e_x / e_x.sum(axis=0)
         return self.pos[['newx', 'newy', 'probability']]
 
 app = Flask(__name__)
 CORS(app)
 
 posnn = load_model('posnn.h5')
-norm = pickle.load(open('./normer.pkl', 'rb'))
+norms = pickle.load(open('./msd.pkl', 'rb'))
 Model = pickle.load(open('./FinalModel.pkl', 'rb'))
 
-script = inputDecode(posModel = posnn, model = 'Model', normer = norm)
+script = inputDecode(posModel = posnn, model = 'Model', norm = norms)
 
 @app.route('/predict', methods = ["GET","POST"])
 def predict():
@@ -137,8 +141,11 @@ def predict():
     data = json.loads(dat)
     df = pd.DataFrame(data['bench'])
     df.columns = ['Off', 'isShoot', 'y', 'x']
+    df['Off'] = df['Off'].astype(int)
+    df['isShoot'] = df['isShoot'].astype(int)
     script.CreatePre(df)
-    res = script.CreatePos()
+    script.CreatePos()
+    res = script.Modeling(fitModel = Model)
     test = res.values
     print 'sending'
     return jsonify(res.to_dict(orient = 'index').values())
