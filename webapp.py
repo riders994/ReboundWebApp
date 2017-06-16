@@ -76,8 +76,8 @@ class normer(object):
         pass
 
     def fit(self, arr):
-        self.ms = arr.ms(axis = 0)
-        self.sds = arr.sds(axis = 0)
+        self.ms = arr.mean(axis = 0)
+        self.sds = arr.std(axis = 0)
 
     def transform(self, arr):
         return (arr - self.ms)/self.sds
@@ -112,9 +112,7 @@ class inputDecode(object):
         self.pos.pop('Off')
         self.pos.pop('isShoot')
         self.pos['MoveV'] = np.sqrt((move ** 2).sum(axis = 1)) * closer
-        res = decoder.pos[['newx', 'newy']]
-        res['probability'] = np.random.rand(10,1)
-        return res
+
 
     def Modeling(self, fitModel):
         self.modIn = np.concatenate([self.pre.values, self.pos[['x', 'y', 'HDist', 'Angle', 'CosSim', 'Box', 'MoveV']].values], axis = 1)
@@ -127,33 +125,23 @@ CORS(app)
 
 posnn = load_model('posnn.h5')
 norm = pickle.load(open('./normer.pkl', 'rb'))
-# Model = pickle.load(open('./FinalModel.pkl', 'rb'))
+Model = pickle.load(open('./FinalModel.pkl', 'rb'))
 
 script = inputDecode(posModel = posnn, model = 'Model', normer = norm)
 
-@app.route('/predict', methods = ["GET", "POST"])
+@app.route('/predict', methods = ["GET","POST"])
 def predict():
-    d = request.form
-    print d.keys()
-    print 'boop'
-    print d.getlist('name[]')
-    print 'boop'
-    print d['bench']
-    data = json.loads(d)
-    print data
+    d = request.form.to_dict()
+    print 'received'
+    dat = d.keys()[0]
+    data = json.loads(dat)
     df = pd.DataFrame(data['bench'])
     df.columns = ['Off', 'isShoot', 'y', 'x']
     script.CreatePre(df)
     res = script.CreatePos()
-
-    # pre = decoder.pos
-    # res = fitter.predict(playarray).reshape(10,1)
-    # results = pd.DataFrame(np.concatenate([pre, res], axis = 1), columns = ['NewX', 'NewY', 'Probability'])
-    # d = results.to_dict(orient = 'index').values
-    # j = jsonify(d)
-    test = res.values()
-    print 'received'
-    return jsonify(test)
+    test = res.values
+    print 'sending'
+    return jsonify(res.to_dict(orient = 'index').values())
 
 
 if __name__ == '__main__':
