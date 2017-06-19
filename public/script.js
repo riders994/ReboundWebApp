@@ -147,6 +147,10 @@ function placeDefender() {
 }
 
 function logPayload() {
+  if (payload.bench.length < 10) {
+    console.log('not enough players');
+    return;
+  }
   let xhr = new XMLHttpRequest();
   xhr.open('POST', 'http://34.197.45.92:8080/predict');
   xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
@@ -201,6 +205,7 @@ function restore() {
   defense = [];
   payload.bench = [];
   shooter = false;
+  banner.innerText = 'Display';
   court.selectAll('*').remove();
 }
 //
