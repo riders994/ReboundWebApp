@@ -47,7 +47,7 @@ const clear = document.getElementById('clear');
 const container = document.getElementById('container');
 const court = d3.select('#container')
                 .append('svg')
-                .style('background-image', 'url(svgs/ultimate.svg)')
+                .style('background-image', 'url(public/svgs/ultimate.svg)')
                 .style('background-size', 'cover')
                 .style('background-color', 'rgb(47, 71, 62)')
                 .style('font-size', '12px')
@@ -148,7 +148,7 @@ function placeDefender() {
 
 function logPayload() {
   let xhr = new XMLHttpRequest();
-  xhr.open('POST', 'http://34.197.45.92:8080/predict');
+  xhr.open('POST', '/predict');
   xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   xhr.onreadystatechange = () => {
     if (xhr.readyState == 4) {

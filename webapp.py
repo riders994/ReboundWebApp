@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import requests, json
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template, send_from_directory
 import cPickle as pickle
 from keras.models import load_model
 from keras.models import Sequential
@@ -120,7 +120,7 @@ class inputDecode(object):
         self.modIn = np.concatenate([self.pre.values, self.pos[['x', 'y', 'HDist', 'Angle', 'CosSim', 'Box', 'MoveV']].values], axis = 1)
         self.model = fitModel
         probs = self.model.predict(self.modIn)
-        e_x = np.exp(preds)
+        e_x = np.exp(probs)
         self.pos['probability'] = e_x / e_x.sum(axis=0)
         return self.pos[['newx', 'newy', 'probability']]
 
@@ -132,6 +132,16 @@ norms = pickle.load(open('./msd.pkl', 'rb'))
 Model = pickle.load(open('./FinalModel.pkl', 'rb'))
 
 script = inputDecode(posModel = posnn, model = 'Model', norm = norms)
+
+@app.route('/', methods=['GET'])
+def index():
+    return render_template('index.html')
+
+@app.route('/public/<path:filename>')
+def serve_static(filename):
+    root_dir = os.path.dirname(os.getcwd())
+    return send_from_directory(os.path.join(root_dir, 'ReboundWebApp', 'public'), filename)
+
 
 @app.route('/predict', methods = ["GET","POST"])
 def predict():
