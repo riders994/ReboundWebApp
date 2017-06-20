@@ -59,23 +59,12 @@ const court = d3.select('#container')
                 .style('box-shadow', '4px 6px 33px 0px rgba(0,0,0,0.75)')
                 .on('click', placeOffender)
                 .on('contextmenu', placeDefender);
-
-// const hoop = court.append('circle')
-//                   .attr('cx', 250)
-//                   .attr('cy', 416.5)
-//                   .attr('r', 7.5)
-//                   .attr('stroke', 'yellow');
-
-
 trigger.addEventListener('click', logPayload);
 clear.addEventListener('click', restore);
 
 function placeOffender() {
-
   let xy = d3.mouse(this);
-
   if (offense.length < 5) {
-
     let player = court.append('circle')
                       .attr('class', 'player')
                       .attr('cx', xy[0])
@@ -85,14 +74,12 @@ function placeOffender() {
                       .attr('stroke', 'black')
                       .attr('stroke-width', '3')
                       .property('isOffense', true)
-
     offense.push(player)
     payload.bench.push(new Player(
       (xy[0] / 10),(xy[1] / 10), true, false
     ));
     offense[offense.length - 1].attr('id', payload.bench.length - 1);
     offense[offense.length - 1].property('xid', offense.length);
-
     let label = court.append('g')
                      .attr('dx', xy[0])
                      .attr('dy', xy[1])
@@ -102,23 +89,19 @@ function placeOffender() {
                      .attr('y', xy[1])
                      .attr("dx", function(d){return -6})
                      .attr("dy", function(d){return 4})
-
   }
-
   if ((window.event.shiftKey && !shooter) ||
       (offense.length === 5 && !shooter)) {
     offense[offense.length - 1].attr('stroke', 'gold')
     payload.bench[payload.bench.length - 1].isShooter = true;
     shooter = true;
   }
-//
 }
 
 function placeDefender() {
   d3.event.preventDefault();
   let xy = d3.mouse(this);
   if (defense.length < 5) {
-
     let player = court.append('circle')
                       .attr('class', 'player')
                       .attr('cx', xy[0])
@@ -127,7 +110,6 @@ function placeDefender() {
                       .attr('fill', 'white')
                       .attr('stroke', 'black')
                       .attr('stroke-width', '3');
-
     defense.push(player);
     payload.bench.push(new Player(
       (xy[0] / 10), (xy[1] / 10), false, false
