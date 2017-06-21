@@ -11,6 +11,7 @@ import os
 import random
 from flask_cors import CORS, cross_origin
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.externals import joblib
 
 # closer = ((df['pre_HDist'] < df['pos_HDist']).astype(int) - 0.5) * 2
 # move = nums[:,[0,1]] - nums[:,[4,5]]
@@ -119,9 +120,9 @@ class inputDecode(object):
     def Modeling(self, fitModel):
         self.modIn = np.concatenate([self.pre.values, self.pos[['x', 'y', 'HDist', 'Angle', 'CosSim', 'Box', 'MoveV']].values], axis = 1)
         self.model = fitModel
-        probs = self.model.predict(self.modIn)
-        e_x = np.exp(probs)
-        self.pos['probability'] = e_x / e_x.sum(axis=0)
+        probs = self.model.predict_proba(self.modIn)
+        p = probs[:,1]
+        self.pos['probability'] = p/p.sum()
         return self.pos[['newx', 'newy', 'probability']]
 
 app = Flask(__name__)
@@ -129,7 +130,7 @@ CORS(app)
 
 posnn = load_model('posnn.h5')
 norms = pickle.load(open('./msd.pkl', 'rb'))
-Model = pickle.load(open('./FinalModel.pkl', 'rb'))
+Model = joblib.load(open('./FinalModel.pkl', 'rb'))
 
 script = inputDecode(posModel = posnn, model = 'Model', norm = norms)
 
