@@ -72,24 +72,6 @@ def boxgen(arr):
     boxes = np.array(dbox + obox)
     return boxes
 
-# class normer(object):
-#
-#     def __init__(self):
-#         pass
-#
-#     def fit(self, arr):
-#         self.ms = arr.mean(axis = 0)
-#         self.sds = arr.std(axis = 0)
-#
-#     def transform(self, arr):
-#         return (arr - self.ms)/self.sds
-#
-#     def fit_transform(self, arr):
-#         self.fit(arr)
-#         return self.transform(arr)
-#
-#
-#
 class inputDecode(object):
 
     def __init__(self, posModel, model, norm):
@@ -164,5 +146,5 @@ def predict():
 
 if __name__ == '__main__':
 
-    port = int(os.getenv('PORT', 8080))
+    port = int(os.getenv('PORT', 80))
     app.run(host='0.0.0.0', port = port)
