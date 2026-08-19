@@ -1,1 +1,14 @@
-*.pkl
+# Models are large / retrained out of band — keep FinalModel.pkl out of git.
+# (posnn.h5 and msd.pkl were committed historically and stay tracked.)
+FinalModel.pkl
+rebound-app/models/FinalModel.pkl
+
+# Python
+__pycache__/
+*.pyc
+venv/
+rebound-app/venv/
+.venv/
+
+# OS
+.DS_Store

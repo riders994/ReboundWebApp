@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Building the NBA Rebound Predictor — Rohan Vahalia</title>
+  <meta name="description" content="How the rebound predictor works: position model, engineered features, and a random forest.">
+  <link rel="stylesheet" href="../../assets/css/main.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✍️</text></svg>">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="../../index.html">Rohan Vahalia</a>
+      <button class="nav__toggle" aria-label="Menu" aria-expanded="false">☰</button>
+      <ul class="nav__links">
+        <li><a href="../../index.html#about">About</a></li>
+        <li><a href="../../projects/index.html">Projects</a></li>
+        <li><a href="../../resume.html">Resume</a></li>
+        <li><a href="../index.html" aria-current="page">Blog</a></li>
+        <li><a href="../../comedy.html">Comedy</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <article class="wrap section prose">
+    <p class="eyebrow">2026-08-19 · Machine learning</p>
+    <h1>Building the NBA Rebound Predictor</h1>
+    <p class="lead">A walk through how the interactive rebound tool works, from a court doodle to a probability.</p>
+
+    <p class="todo">TODO: this is a starter draft — edit it into your own voice.</p>
+
+    <h2>The idea</h2>
+    <p>
+      Give the model ten players standing on a half-court at the instant a shot goes up, and ask a
+      simple question: who grabs the rebound? You place five offensive and five defensive players,
+      mark the shooter, and hit run. The tool returns a probability for each player and animates them
+      to where the model thinks they'll end up.
+    </p>
+
+    <h2>Two models, in sequence</h2>
+    <p>
+      There are two learning steps. First a small neural network takes the pre-shot positions and
+      predicts each player's <em>post-shot</em> position — rebounding is about movement, not just where
+      you start. Then I engineer a handful of features on top of those positions and feed them to a
+      random forest that outputs a rebound probability per player, normalized to sum to one.
+    </p>
+
+    <h2>The features that matter</h2>
+    <p>The engineered features try to capture rebounding intuition:</p>
+    <ul>
+      <li><strong>Distance and angle to the hoop</strong> — position relative to the rim (fixed at roughly <code>(41.65, 25)</code> in court coordinates).</li>
+      <li><strong>Cosine similarity to the shooter's angle</strong> — are you on the same line to the basket as the shot?</li>
+      <li><strong>A "box-out" count</strong> — a single k-means-style assignment step estimates how many opponents each player is boxing out.</li>
+      <li><strong>Movement vector</strong> — how far and in which direction the position model expects the player to move, signed by whether they get closer to the rim.</li>
+    </ul>
+
+    <h2>The front-end</h2>
+    <p>
+      The court is a D3.js sketch over an SVG half-court. Clicks drop players, a POST sends their
+      coordinates to a small Flask service, and the response drives a color gradient from blue (unlikely)
+      to red (most likely) with the top rebounder outlined.
+    </p>
+
+    <p><a href="../../projects/rebounding.html">→ Try the live demo</a></p>
+  </article>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span class="muted">© <span data-year>2026</span> Rohan Vahalia</span>
+      <ul class="footer__social">
+        <li><a href="mailto:r.vahalia@gmail.com">Email</a></li>
+        <li><a href="https://github.com/riders994">GitHub</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script src="../../assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rohan Vahalia — Data · Software · Comedy</title>
+  <meta name="description" content="Rohan Vahalia — data scientist and software engineer. Projects, writing, resume, and stand-up comedy.">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏀</text></svg>">
+</head>
+<body>
+  <!-- nav -->
+  <nav class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="index.html">Rohan Vahalia</a>
+      <button class="nav__toggle" aria-label="Menu" aria-expanded="false">☰</button>
+      <ul class="nav__links">
+        <li><a href="#about">About</a></li>
+        <li><a href="projects/index.html">Projects</a></li>
+        <li><a href="resume.html">Resume</a></li>
+        <li><a href="blog/index.html">Blog</a></li>
+        <li><a href="comedy.html">Comedy</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- hero -->
+  <header class="hero wrap">
+    <div class="hero__grid">
+      <div>
+        <p class="eyebrow">Data · Software · Comedy</p>
+        <h1>Hi, I'm Rohan.</h1>
+        <p class="lead">
+          <!-- TODO: replace with your own one-liner. -->
+          I build data-driven software and machine-learning tools — and I do stand-up on the side.
+          This site collects my projects, writing, and shows.
+        </p>
+        <div class="hero__cta">
+          <a class="btn btn--primary" href="projects/index.html">View projects</a>
+          <a class="btn btn--ghost" href="resume.html">Resume</a>
+        </div>
+      </div>
+      <img class="hero__photo" src="assets/img/headshot.jpg" alt="Rohan Vahalia"
+           onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22400%22%3E%3Crect width=%22400%22 height=%22400%22 fill=%22%23e2e2dd%22/%3E%3Ctext x=%22200%22 y=%22210%22 font-size=%2224%22 fill=%22%238a8a82%22 text-anchor=%22middle%22 font-family=%22monospace%22%3Eheadshot.jpg%3C/text%3E%3C/svg%3E'">
+    </div>
+  </header>
+
+  <!-- about -->
+  <section class="section section--soft" id="about">
+    <div class="wrap">
+      <p class="eyebrow">About</p>
+      <h2>A little background</h2>
+      <p class="lead">
+        <!-- TODO: replace with your real bio. -->
+        I'm a data scientist / software engineer who likes taking messy real-world problems —
+        sports tracking data, models, interactive tools — and turning them into things people can
+        actually click on. I started this site in 2017 to host a basketball-rebound predictor;
+        this revamp turns it into a proper home for everything I work on.
+      </p>
+    </div>
+  </section>
+
+  <!-- projects preview -->
+  <section class="section" id="projects">
+    <div class="wrap">
+      <p class="eyebrow">Selected work</p>
+      <h2>Projects</h2>
+      <div class="grid grid--3" style="margin-top:1.8rem">
+
+        <a class="card" href="projects/rebounding.html">
+          <img class="card__thumb" src="assets/img/rebounding-thumb.png" alt="Rebound predictor"
+               onerror="this.style.background='#2f473e';this.removeAttribute('src')">
+          <div class="card__body">
+            <h3 class="card__title">NBA Rebound Predictor</h3>
+            <p class="card__blurb">Interactive court where a neural net + random forest predict who grabs the rebound.</p>
+            <ul class="tags"><li class="tag">Python</li><li class="tag">Keras</li><li class="tag">D3.js</li></ul>
+          </div>
+        </a>
+
+        <a class="card card--placeholder" href="projects/index.html">
+          <div class="card__thumb">project 2</div>
+          <div class="card__body">
+            <h3 class="card__title">Project Two</h3>
+            <p class="card__blurb">TODO: add a second project (title, blurb, thumbnail, link).</p>
+            <ul class="tags"><li class="tag">tag</li></ul>
+          </div>
+        </a>
+
+        <a class="card card--placeholder" href="projects/index.html">
+          <div class="card__thumb">project 3</div>
+          <div class="card__body">
+            <h3 class="card__title">Project Three</h3>
+            <p class="card__blurb">TODO: add a third project.</p>
+            <ul class="tags"><li class="tag">tag</li></ul>
+          </div>
+        </a>
+
+      </div>
+      <p style="margin-top:1.6rem"><a href="projects/index.html">All projects →</a></p>
+    </div>
+  </section>
+
+  <!-- footer -->
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span class="muted">© <span data-year>2026</span> Rohan Vahalia</span>
+      <ul class="footer__social">
+        <li><a href="mailto:r.vahalia@gmail.com">Email</a></li>
+        <li><a href="https://github.com/riders994">GitHub</a></li>
+        <li><a href="#">LinkedIn</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
