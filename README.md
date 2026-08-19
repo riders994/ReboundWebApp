@@ -22,10 +22,9 @@ DEPLOY.md        EC2 deployment runbook
 ```
 
 ## Run locally
-Static site:
+Static site (refreshes directory-driven manifests, then serves):
 ```bash
-cd site && python3 -m http.server 5500
-# open http://localhost:5500
+./scripts/serve.sh          # open http://localhost:5500  (PORT=8080 to change)
 ```
 Backend (in another terminal):
 ```bash
