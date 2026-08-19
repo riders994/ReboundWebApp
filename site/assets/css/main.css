@@ -195,6 +195,25 @@ img { max-width: 100%; display: block; }
 .post-list__date { font-family: var(--mono); font-size: .8rem; color: var(--fg-faint); }
 .post-list a { color: var(--fg); font-weight: 600; font-size: 1.1rem; }
 
+/* comedy tag filters */
+.filters { display: flex; flex-direction: column; gap: .7rem; margin-bottom: 1.5rem; }
+.filter-group { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.filter-group__label {
+  font-family: var(--mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--fg-faint); min-width: 5.5rem;
+}
+.chip {
+  font-size: .85rem; border: 1px solid var(--border); background: var(--bg-card); color: var(--fg-soft);
+  border-radius: 999px; padding: .3rem .85rem; cursor: pointer;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.is-active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.filters__clear {
+  align-self: flex-start; background: none; border: 0; color: var(--accent);
+  cursor: pointer; font-size: .85rem; text-decoration: underline; padding: .2rem 0;
+}
+
 .shows { list-style: none; padding: 0; margin: 1.5rem 0 0; }
 .shows li { display: flex; gap: 1rem; align-items: baseline; padding: .7rem 0; border-bottom: 1px solid var(--border); }
 .shows .date { font-family: var(--mono); font-size: .82rem; color: var(--accent); min-width: 6.5rem; }

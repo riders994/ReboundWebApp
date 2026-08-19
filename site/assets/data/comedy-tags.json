@@ -1,0 +1,8 @@
+{
+  "categories": ["location", "date", "subject", "joke"],
+  "tags": {
+    "kkj": { "label": "Knock-Knock Joke", "category": "joke" },
+    "crowdwork": { "label": "Crowd Work", "category": "subject" },
+    "chi": { "label": "Chicago", "category": "location" }
+  }
+}

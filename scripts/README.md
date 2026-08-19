@@ -49,6 +49,38 @@ To update photos later: upload to the bucket, re-run the generator, commit the m
 > Tip: if you ever keep local copies of S3 images inside a feed dir, gitignore the image
 > files there (`site/assets/img/<feed>/*.jpg` etc.) and keep only `manifest.json` tracked.
 
+## Comedy tags
+
+Two-step, two-tool workflow. You invent short **meta-tag** codes (`kkj`) that map to
+reader-facing **normalized** labels ("Knock-Knock Joke") within a category
+(location / date / subject / joke), then apply them to videos. The Comedy page reads the same
+files (`site/assets/data/comedy-tags.json` + `comedy-clips.json`) and lets visitors filter.
+Both tools share `comedy_data.py` and have no dependencies.
+
+**1. Register the vocabulary — `register-tag.py`** (the formal process). Validates the code
+format, refuses silent overwrites (`--force` to replace), and only accepts a known category
+unless you pass `--new-category`. Prompts interactively for anything you omit.
+
+```bash
+python3 scripts/register-tag.py add kkj --label "Knock-Knock Joke" --category joke
+python3 scripts/register-tag.py add-category location
+python3 scripts/register-tag.py list
+python3 scripts/register-tag.py retire kkj --strip     # remove a code (and pull it off videos)
+```
+
+**2. Add videos and apply codes — `comedy-tags.py`** (operational). `add` submits a new
+video (from a YouTube id or URL), optionally with tags; `tag`/`untag` adjust an existing
+one. Both `add` and `tag` reject any code that isn't registered, so every tag on a video
+has a label and category for the site.
+
+```bash
+python3 scripts/comedy-tags.py add   "https://youtu.be/VIDEOID" --title "Cellar Set" --tags kkj chi
+python3 scripts/comedy-tags.py tag   <VIDEO_ID> kkj chi     # tag an existing video
+python3 scripts/comedy-tags.py untag <VIDEO_ID> chi
+python3 scripts/comedy-tags.py videos      # list videos + their tags
+python3 scripts/comedy-tags.py tags        # list the registry (read-only)
+```
+
 ## serve.sh
 
 Local dev entrypoint: refreshes manifests, then serves `site/`. `PORT=8080 ./scripts/serve.sh`.
