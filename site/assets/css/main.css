@@ -208,6 +208,17 @@ img { max-width: 100%; display: block; }
   background: color-mix(in srgb, var(--accent) 8%, transparent); margin: 1rem 0;
 }
 
+/* ---- social links (bio) -------------------------------------------------- */
+.social { display: flex; flex-wrap: wrap; gap: .8rem; list-style: none; padding: 0; margin: 0; }
+.social a {
+  display: inline-flex; align-items: center; gap: .5rem;
+  color: var(--fg-soft); font-weight: 500; font-size: .95rem;
+  border: 1px solid var(--border); border-radius: 999px; padding: .45rem .95rem;
+  transition: color .2s ease, border-color .2s ease, transform .08s ease;
+}
+.social a:hover { color: var(--accent); border-color: var(--accent); text-decoration: none; transform: translateY(-1px); }
+.social svg { width: 20px; height: 20px; fill: currentColor; }
+
 /* ---- footer -------------------------------------------------------------- */
 .footer { border-top: 1px solid var(--border); padding: 2.5rem 0; margin-top: 2rem; }
 .footer__inner { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: center; }
