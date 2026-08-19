@@ -4,16 +4,16 @@
    ========================================================================== */
 
 :root {
-  --bg:        #ffffff;
-  --bg-soft:   #f4f4f2;
-  --bg-card:   #ffffff;
-  --fg:        #1a1a1a;
-  --fg-soft:   #55554f;
-  --fg-faint:  #8a8a82;
-  --border:    #e2e2dd;
-  --accent:    #e8613c;
+  --bg:        #f4effb;  /* light lilac */
+  --bg-soft:   #ece3f7;  /* deeper lilac panels */
+  --bg-card:   #fcfaff;  /* near-white, lilac tint */
+  --fg:        #2b302d;  /* dark charcoal with a faint green lean */
+  --fg-soft:   #58605a;
+  --fg-faint:  #8b938d;
+  --border:    #e2daf1;
+  --accent:    #6d57bd;  /* muted violet */
   --accent-fg: #ffffff;
-  --shadow:    0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06);
+  --shadow:    0 1px 2px rgba(60,40,90,.06), 0 8px 24px rgba(60,40,90,.10);
   --radius:    12px;
   --maxw:      1040px;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -22,15 +22,15 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:       #14140f;
-    --bg-soft:  #1d1d17;
-    --bg-card:  #1f1f19;
-    --fg:       #f2f2ec;
-    --fg-soft:  #b8b8ae;
-    --fg-faint: #7d7d72;
-    --border:   #33332b;
-    --accent:   #ff7a54;
-    --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 30px rgba(0,0,0,.45);
+    --bg:       #17131f;  /* deep plum */
+    --bg-soft:  #201a2b;
+    --bg-card:  #241d31;
+    --fg:       #ecf3ee;  /* faint green lean */
+    --fg-soft:  #b9c3bc;
+    --fg-faint: #828d85;
+    --border:   #352b46;
+    --accent:   #b0a0e6;  /* light violet */
+    --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 30px rgba(0,0,0,.5);
   }
 }
 
