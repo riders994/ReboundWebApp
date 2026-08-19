@@ -1,0 +1,21 @@
+{
+  "feeds": [
+    {
+      "name": "headshots",
+      "source": "local",
+      "dir": "assets/img/headshots",
+      "enabled": true
+    },
+
+    {
+      "_comment": "Example S3-backed feed. Copy this shape for vacation/cat/etc. Set enabled=true, fill in bucket/prefix/base_url, then run scripts/gen-manifests.py. Images stay in S3; only manifest.json is committed.",
+      "name": "vacation",
+      "source": "s3",
+      "dir": "assets/img/vacation",
+      "enabled": false,
+      "bucket": "your-bucket-name",
+      "prefix": "vacation/",
+      "base_url": "https://your-bucket-name.s3.amazonaws.com/"
+    }
+  ]
+}

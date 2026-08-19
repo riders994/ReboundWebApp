@@ -28,22 +28,19 @@
     <h1>Comedy</h1>
     <p class="lead">
       <!-- TODO: replace with your own comedy bio. -->
-      When I'm not staring at data, I'm on stage. Stand-up sets, shows, and the occasional clip below.
+      When I'm not staring at data, I'm on stage. Stand-up sets and clips below —
+      the full collection lives on my
+      <a href="https://www.youtube.com/@RohanVComedy" target="_blank" rel="noopener">YouTube channel</a>.
     </p>
   </header>
 
   <section class="wrap" style="padding-bottom:2rem">
     <h2>Clips</h2>
-    <p class="todo">TODO: paste a YouTube/Vimeo embed URL below (replace <code>VIDEO_ID</code>), or delete this block.</p>
-    <div class="grid grid--2" style="margin-top:1rem">
-      <div class="embed">
-        <iframe src="https://www.youtube.com/embed/VIDEO_ID" title="Comedy clip"
-                loading="lazy" allowfullscreen></iframe>
-      </div>
-      <div class="embed" style="display:grid;place-items:center;color:var(--fg-faint);font-family:var(--mono)">
-        + another clip
-      </div>
+    <!-- Clips are loaded from assets/data/comedy-clips.json (see that folder's README). -->
+    <div data-clips="assets/data/comedy-clips.json" style="margin-top:1rem">
+      <p class="todo">Loading clips…</p>
     </div>
+    <p style="margin-top:1.2rem"><a href="https://www.youtube.com/@RohanVComedy" target="_blank" rel="noopener">See all videos on YouTube →</a></p>
   </section>
 
   <section class="section--soft wrap" style="padding:2.5rem 1.25rem;border-radius:12px;margin:0 1.25rem 3rem">

@@ -10,5 +10,8 @@ python3 scripts/gen-manifests.py
 ```
 
 `scripts/serve.sh` also runs this automatically before starting the local site, and the
-deploy step runs it before publishing. That writes `manifest.json` (the list the slideshow reads). With no images, the hero shows a
+deploy step runs it before publishing. That writes `manifest.json` (the list the slideshow reads).
+
+This is the `headshots` **feed** (source `local`) declared in `scripts/feeds.json`. To source a
+feed from an S3 bucket instead of the repo, see `scripts/README.md`. With no images, the hero shows a
 placeholder. With one image it just displays; with several it crossfades every few seconds.
