@@ -40,8 +40,13 @@
           <a class="btn btn--ghost" href="resume.html">Resume</a>
         </div>
       </div>
-      <img class="hero__photo" src="assets/img/headshot.jpg" alt="Rohan Vahalia"
-           onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22400%22%3E%3Crect width=%22400%22 height=%22400%22 fill=%22%23e2e2dd%22/%3E%3Ctext x=%22200%22 y=%22210%22 font-size=%2224%22 fill=%22%238a8a82%22 text-anchor=%22middle%22 font-family=%22monospace%22%3Eheadshot.jpg%3C/text%3E%3C/svg%3E'">
+      <div class="hero__slideshow" data-slideshow
+           data-manifest="assets/img/headshots/manifest.json"
+           data-base="assets/img/headshots/"
+           data-interval="4000"
+           data-alt="Rohan Vahalia">
+        <div class="placeholder">add photos to<br>assets/img/headshots/</div>
+      </div>
     </div>
   </header>
 
