@@ -63,18 +63,26 @@ unless you pass `--new-category`. Prompts interactively for anything you omit.
 
 ```bash
 python3 scripts/register-tag.py add kkj --label "Knock-Knock Joke" --category joke
+python3 scripts/register-tag.py import-csv tags.csv     # bulk upsert; columns: tag,label,category
 python3 scripts/register-tag.py add-category location
 python3 scripts/register-tag.py list
 python3 scripts/register-tag.py retire kkj --strip     # remove a code (and pull it off videos)
 ```
 
+`import-csv` upserts: rows with a new `tag` are added, rows whose `label`/`category` changed
+are updated, unchanged rows are left alone, and codes **not** in the CSV are never removed.
+The whole file is validated first (code format, required fields, no duplicate tags), so a bad
+row aborts the import without writing anything.
+
 **2. Add videos and apply codes — `comedy-tags.py`** (operational). `add` submits a new
-video (from a YouTube id or URL), optionally with tags; `tag`/`untag` adjust an existing
+video (from a YouTube id or URL), optionally with tags; its title is fetched automatically
+from YouTube (keyless oEmbed) unless you pass `--title`. `tag`/`untag` adjust an existing
 one. Both `add` and `tag` reject any code that isn't registered, so every tag on a video
 has a label and category for the site.
 
 ```bash
-python3 scripts/comedy-tags.py add   "https://youtu.be/VIDEOID" --title "Cellar Set" --tags kkj chi
+python3 scripts/comedy-tags.py add   "https://youtu.be/VIDEOID" --tags kkj chi   # title auto-fetched
+python3 scripts/comedy-tags.py add   "https://youtu.be/VIDEOID" --title "Custom Caption"
 python3 scripts/comedy-tags.py tag   <VIDEO_ID> kkj chi     # tag an existing video
 python3 scripts/comedy-tags.py untag <VIDEO_ID> chi
 python3 scripts/comedy-tags.py videos      # list videos + their tags

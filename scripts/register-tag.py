@@ -18,15 +18,20 @@ Usage:
   register-tag.py add kkj --label "Knock-Knock Joke" --category joke
   register-tag.py add kkj                       # interactive: prompts for label/category
   register-tag.py add pun --label "Pun" --category joke --new-category
+  register-tag.py import-csv tags.csv           # bulk upsert (columns: tag,label,category)
   register-tag.py list
   register-tag.py categories
   register-tag.py add-category joke
   register-tag.py retire kkj [--strip]          # remove; --strip also pulls it off videos
 """
 import argparse
+import csv
+import pathlib
 import sys
 
 import comedy_data as cd
+
+CSV_COLUMNS = ["tag", "label", "category"]
 
 
 def _prompt(message):
@@ -75,6 +80,73 @@ def cmd_add(args):
     reg["tags"][code] = {"label": label, "category": category}
     cd.save_registry(reg)
     print(f"{verb} {code} -> \"{label}\" [{category}]")
+
+
+def cmd_import_csv(args):
+    """Bulk upsert tags from a CSV (columns: tag, label, category).
+
+    Adds new codes, edits ones whose label/category changed, no-ops unchanged ones, and
+    never removes codes that aren't in the CSV. Validates the whole file first and aborts
+    without writing if any row is bad.
+    """
+    path = pathlib.Path(args.path)
+    if not path.exists():
+        sys.exit(f"file not found: {args.path}")
+
+    rows, errors, seen = [], [], {}
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        headers = [(h or "").strip().lower() for h in (reader.fieldnames or [])]
+        missing = [c for c in CSV_COLUMNS if c not in headers]
+        if missing:
+            sys.exit(f"CSV missing column(s): {', '.join(missing)} (need: tag, label, category)")
+
+        for lineno, raw in enumerate(reader, start=2):  # line 1 is the header
+            row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
+            code, label, category = row.get("tag", ""), row.get("label", ""), row.get("category", "")
+            if not any((code, label, category)):
+                continue  # blank line
+            if not cd.CODE_RE.match(code):
+                errors.append(f"line {lineno}: invalid tag code '{code}'")
+            elif not label:
+                errors.append(f"line {lineno}: missing label for '{code}'")
+            elif not category:
+                errors.append(f"line {lineno}: missing category for '{code}'")
+            elif code in seen:
+                errors.append(f"line {lineno}: duplicate tag '{code}' (also line {seen[code]})")
+            else:
+                seen[code] = lineno
+                rows.append((code, label, category))
+
+    if errors:
+        print("import aborted — fix these rows:", file=sys.stderr)
+        for e in errors:
+            print("  " + e, file=sys.stderr)
+        sys.exit(1)
+
+    reg = cd.load_registry()
+    added = updated = unchanged = 0
+    new_cats = []
+    for code, label, category in rows:
+        if category not in reg["categories"]:
+            reg["categories"].append(category)
+            new_cats.append(category)
+        cur = reg["tags"].get(code)
+        if cur is None:
+            added += 1
+        elif cur.get("label") == label and cur.get("category") == category:
+            unchanged += 1
+            continue
+        else:
+            updated += 1
+        reg["tags"][code] = {"label": label, "category": category}
+
+    if added or updated:
+        cd.save_registry(reg)
+    print(f"imported {path.name}: {added} added, {updated} updated, {unchanged} unchanged "
+          f"({len(rows)} rows)")
+    if new_cats:
+        print(f"  new categories: {', '.join(sorted(set(new_cats)))}")
 
 
 def cmd_add_category(args):
@@ -131,6 +203,10 @@ def main():
     a.add_argument("--new-category", action="store_true", help="allow creating the category if it's new")
     a.add_argument("--force", action="store_true", help="overwrite an existing code")
     a.set_defaults(func=cmd_add)
+
+    ic = sub.add_parser("import-csv", help="bulk upsert tags from a CSV (columns: tag,label,category)")
+    ic.add_argument("path", help="path to the CSV file")
+    ic.set_defaults(func=cmd_import_csv)
 
     ac = sub.add_parser("add-category", help="create a category")
     ac.add_argument("name")

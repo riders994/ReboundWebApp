@@ -30,8 +30,8 @@ vocabulary and applying it to videos are two separate steps:
 python3 scripts/register-tag.py add kkj --label "Knock-Knock Joke" --category joke
 python3 scripts/register-tag.py list
 
-# operational: submit a new video (id or URL), or tag an existing one
-python3 scripts/comedy-tags.py add   "https://youtu.be/VIDEOID" --title "Cellar Set" --tags kkj
+# operational: submit a new video (id or URL; title auto-fetched from YouTube), or tag one
+python3 scripts/comedy-tags.py add   "https://youtu.be/VIDEOID" --tags kkj
 python3 scripts/comedy-tags.py tag   <VIDEO_ID> kkj chi
 python3 scripts/comedy-tags.py untag <VIDEO_ID> chi
 python3 scripts/comedy-tags.py videos    # list videos + their tags

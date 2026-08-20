@@ -6,6 +6,9 @@ tools can't drift apart.
 import json
 import pathlib
 import re
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / "site" / "assets" / "data"
@@ -31,6 +34,20 @@ def extract_video_id(text):
 def unregistered(reg, codes):
     """Return the subset of codes that are not in the registry."""
     return [c for c in codes if c not in reg["tags"]]
+
+
+def fetch_youtube_title(video_id, timeout=10):
+    """Fetch a public video's title via YouTube's keyless oEmbed endpoint.
+
+    Returns the title string, or None on any failure (network, private/unavailable video).
+    """
+    watch = "https://www.youtube.com/watch?v=" + video_id
+    api = "https://www.youtube.com/oembed?" + urlencode({"url": watch, "format": "json"})
+    try:
+        with urlopen(Request(api, headers={"User-Agent": "Mozilla/5.0"}), timeout=timeout) as resp:
+            return json.load(resp).get("title")
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError):
+        return None
 
 
 def _load(path, default):

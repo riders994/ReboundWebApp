@@ -7,7 +7,7 @@ registered with register-tag.py — that's the formal process for managing the t
 vocabulary; this tool just applies them. Any flow given an unregistered tag errors out.
 
 Usage:
-  comedy-tags.py add    <VIDEO_ID|URL> --title "..." [--tags kkj chi]   # submit a new video
+  comedy-tags.py add    <VIDEO_ID|URL> [--tags kkj chi]   # submit a new video (title auto-fetched)
   comedy-tags.py tag    <VIDEO_ID> kkj chi     # add tags to an existing video
   comedy-tags.py untag  <VIDEO_ID> chi         # remove tags from a video
   comedy-tags.py videos                        # list videos with their resolved tags
@@ -71,9 +71,18 @@ def cmd_add(args):
         sys.exit(f"video '{vid}' already exists — use `comedy-tags.py tag {vid} ...` to add "
                  f"tags, or --force to overwrite its entry")
 
+    # Title: use --title if given; otherwise fetch it from YouTube (keyless oEmbed).
+    title = args.title
+    if not title:
+        title = cd.fetch_youtube_title(vid)
+        if title:
+            print(f"  fetched title: {title}")
+        else:
+            print("  (couldn't fetch title from YouTube — pass --title to set one)")
+
     entry = {"id": vid}
-    if args.title:
-        entry["title"] = args.title
+    if title:
+        entry["title"] = title
     entry["tags"] = list(dict.fromkeys(codes))  # dedupe, keep order
 
     if idx >= 0:
@@ -126,7 +135,7 @@ def main():
 
     a = sub.add_parser("add", help="submit a new video (optionally with tags)")
     a.add_argument("video", help="YouTube video id or URL")
-    a.add_argument("--title", help="caption shown on the site")
+    a.add_argument("--title", help="caption shown on the site (default: fetched from YouTube)")
     a.add_argument("--tags", nargs="*", default=[], help="registered tag codes to apply")
     a.add_argument("--force", action="store_true", help="overwrite if the video already exists")
     a.set_defaults(func=cmd_add)
