@@ -95,7 +95,9 @@ The projects section is data-driven from `site/assets/data/projects.json`. Each 
 git-based: a GitHub repo, an optional web-app link, a status (`in-flight`/`completed`), and an
 optional "featured on" date. The projects page shows a highlight of **featured + in-flight**
 projects, then a paginated list of **completed** ones (newest first). `featured` = the **5
-projects most recently designated** (by their featured date).
+projects most recently designated** (by their featured date). Marking a project completed
+records `completed_at` from the repo's **most recent commit** (via the GitHub API; falls back
+to today if unreachable), so the completed list's newest-first order tracks real repo activity.
 
 Each detail page's writeup is the repo's **README, rendered to HTML at build time**. Override
 it by dropping `content/projects/<slug>.md` in THIS repo. Projects marked `"page": "custom"`

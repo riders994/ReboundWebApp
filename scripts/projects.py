@@ -15,7 +15,7 @@ Usage:
       --blurb "..." --tags Python D3.js --webapp rebounding.html --status in-flight --page custom
   projects.py feature   <slug>            # designate featured (stamps today's date)
   projects.py unfeature <slug>
-  projects.py status    <slug> completed  # or in-flight; completing stamps completed_at
+  projects.py status    <slug> completed  # completing sets completed_at = repo's latest commit date
   projects.py list
   projects.py render                      # fetch READMEs / overrides -> generate detail pages
 
@@ -42,6 +42,11 @@ def cmd_add(args):
         sys.exit("status must be 'in-flight' or 'completed'")
     if args.page not in ("generated", "custom"):
         sys.exit("page must be 'generated' or 'custom'")
+    completed_at = None
+    note = ""
+    if args.status == "completed":
+        completed_at, note = _completion_date({"repo": args.repo, "readme_branch": args.branch})
+        note = f" (completed_at: {note})"
     project = {
         "slug": args.slug,
         "name": args.name,
@@ -51,13 +56,13 @@ def cmd_add(args):
         "tags": args.tags or [],
         "status": args.status,
         "featured_at": None,
-        "completed_at": pd.today() if args.status == "completed" else None,
+        "completed_at": completed_at,
         "page": args.page,
         "readme_branch": args.branch,
     }
     projects.append(project)
     pd.save_projects(projects)
-    print(f"added {args.slug} [{args.status}, page={args.page}]")
+    print(f"added {args.slug} [{args.status}, page={args.page}]{note}")
 
 
 def _get(projects, slug):
@@ -65,6 +70,16 @@ def _get(projects, slug):
     if idx < 0:
         sys.exit(f"no project '{slug}'")
     return idx
+
+
+def _completion_date(project):
+    """Completed date for recency = the repo's most recent commit; today if unavailable."""
+    owner, repo = pd.parse_repo(project.get("repo", ""))
+    if owner:
+        date = pd.fetch_latest_commit_date(owner, repo, project.get("readme_branch"))
+        if date:
+            return date, f"latest commit {date}"
+    return pd.today(), f"{pd.today()} (couldn't read latest commit)"
 
 
 def cmd_feature(args):
@@ -88,10 +103,12 @@ def cmd_status(args):
     projects = pd.load_projects()
     p = projects[_get(projects, args.slug)]
     p["status"] = args.value
-    if args.value == "completed" and not p.get("completed_at"):
-        p["completed_at"] = pd.today()
+    note = ""
+    if args.value == "completed":
+        p["completed_at"], note = _completion_date(p)
+        note = f" (completed_at: {note})"
     pd.save_projects(projects)
-    print(f"{args.slug} -> {args.value}" + (f" (completed {p['completed_at']})" if args.value == "completed" else ""))
+    print(f"{args.slug} -> {args.value}{note}")
 
 
 def cmd_list(args):

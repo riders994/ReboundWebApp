@@ -55,6 +55,23 @@ def featured_slugs(projects, limit=FEATURED_LIMIT):
     return {p["slug"] for p in dated[:limit]}
 
 
+def fetch_latest_commit_date(owner, repo, branch=None):
+    """Return the date (YYYY-MM-DD) of the most recent commit, or None on failure.
+
+    Uses the unauthenticated GitHub API (rate-limited but fine for occasional CLI use).
+    """
+    url = f"https://api.github.com/repos/{owner}/{repo}/commits?per_page=1"
+    if branch:
+        url += f"&sha={branch}"
+    headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/vnd.github+json"}
+    try:
+        with urlopen(Request(url, headers=headers), timeout=15) as r:
+            data = json.load(r)
+        return data[0]["commit"]["committer"]["date"][:10]  # "2025-07-31T..." -> "2025-07-31"
+    except (HTTPError, URLError, TimeoutError, ValueError, KeyError, IndexError, TypeError, OSError):
+        return None
+
+
 def render_markdown(text):
     import markdown
     return markdown.markdown(
