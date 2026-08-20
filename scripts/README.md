@@ -89,6 +89,32 @@ python3 scripts/comedy-tags.py videos      # list videos + their tags
 python3 scripts/comedy-tags.py tags        # list the registry (read-only)
 ```
 
+## Projects (`projects.py`)
+
+The projects section is data-driven from `site/assets/data/projects.json`. Each project is
+git-based: a GitHub repo, an optional web-app link, a status (`in-flight`/`completed`), and an
+optional "featured on" date. The projects page shows a highlight of **featured + in-flight**
+projects, then a paginated list of **completed** ones (newest first). `featured` = the **5
+projects most recently designated** (by their featured date).
+
+Each detail page's writeup is the repo's **README, rendered to HTML at build time**. Override
+it by dropping `content/projects/<slug>.md` in THIS repo. Projects marked `"page": "custom"`
+(e.g. the rebound demo, with its embedded live app) keep a hand-authored page under
+`site/projects/` and are skipped by `render`.
+
+```bash
+python3 scripts/projects.py add <slug> --name "..." --repo <url> [--blurb ..] [--tags a b] \
+        [--webapp <url>] [--status in-flight|completed] [--page generated|custom]
+python3 scripts/projects.py feature   <slug>          # designate featured (stamps today)
+python3 scripts/projects.py unfeature <slug>
+python3 scripts/projects.py status    <slug> completed
+python3 scripts/projects.py list
+python3 scripts/projects.py render                    # READMEs/overrides -> detail pages
+```
+
+`render` needs `markdown` (`pip install -r scripts/requirements.txt`). `serve.sh` and the
+deploy steps run it automatically.
+
 ## serve.sh
 
 Local dev entrypoint: refreshes manifests, then serves `site/`. `PORT=8080 ./scripts/serve.sh`.

@@ -23,59 +23,21 @@
     </div>
   </nav>
 
-  <header class="section wrap">
+  <header class="section wrap" style="padding-bottom:1rem">
     <p class="eyebrow">Selected work</p>
     <h1>Projects</h1>
     <p class="lead">Things I've built — machine learning, data tools, and interactive visualizations.</p>
   </header>
 
+  <section class="wrap" style="padding-bottom:1rem">
+    <p class="eyebrow">Featured &amp; in flight</p>
+    <div id="project-highlight"><p class="muted">Loading…</p></div>
+  </section>
+
   <section class="wrap" style="padding-bottom:4rem">
-    <div class="grid grid--2">
-
-      <a class="card" href="rebounding.html">
-        <img class="card__thumb" src="../assets/img/rebounding-thumb.png" alt="Rebound predictor"
-             onerror="this.style.background='#2f473e';this.removeAttribute('src')">
-        <div class="card__body">
-          <h3 class="card__title">NBA Rebound Predictor</h3>
-          <p class="card__blurb">
-            Draw a play on a half-court and a neural network predicts where players move after the
-            shot, then a random forest ranks who's most likely to grab the rebound. Live &amp; interactive.
-          </p>
-          <ul class="tags">
-            <li class="tag">Python</li><li class="tag">Flask</li><li class="tag">Keras</li>
-            <li class="tag">scikit-learn</li><li class="tag">D3.js</li>
-          </ul>
-        </div>
-      </a>
-
-      <a class="card card--placeholder" href="#">
-        <div class="card__thumb">project 2</div>
-        <div class="card__body">
-          <h3 class="card__title">Project Two</h3>
-          <p class="card__blurb">TODO: title, blurb, thumbnail, and a detail page or external link.</p>
-          <ul class="tags"><li class="tag">tag</li><li class="tag">tag</li></ul>
-        </div>
-      </a>
-
-      <a class="card card--placeholder" href="#">
-        <div class="card__thumb">project 3</div>
-        <div class="card__body">
-          <h3 class="card__title">Project Three</h3>
-          <p class="card__blurb">TODO: add another project here.</p>
-          <ul class="tags"><li class="tag">tag</li></ul>
-        </div>
-      </a>
-
-      <a class="card card--placeholder" href="#">
-        <div class="card__thumb">project 4</div>
-        <div class="card__body">
-          <h3 class="card__title">Project Four</h3>
-          <p class="card__blurb">TODO: add another project here.</p>
-          <ul class="tags"><li class="tag">tag</li></ul>
-        </div>
-      </a>
-
-    </div>
+    <p class="eyebrow">Completed</p>
+    <div id="project-completed"></div>
+    <div id="project-pager" class="pagination"></div>
   </section>
 
   <footer class="footer">
@@ -89,6 +51,7 @@
     </div>
   </footer>
 
+  <script src="../assets/js/projects.js"></script>
   <script src="../assets/js/main.js"></script>
 </body>
 </html>

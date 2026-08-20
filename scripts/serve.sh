@@ -16,6 +16,9 @@ PORT="${PORT:-5500}"
 echo "→ refreshing manifests…"
 python3 "$ROOT/scripts/gen-manifests.py"
 
+echo "→ rendering project pages…"
+python3 "$ROOT/scripts/projects.py" render || echo "  (project render skipped — see message above)"
+
 echo "→ serving $ROOT/site at http://localhost:$PORT (Ctrl-C to stop)"
 cd "$ROOT/site"
 exec python3 -m http.server "$PORT"

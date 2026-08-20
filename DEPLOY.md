@@ -70,6 +70,7 @@ cd ~/ReboundWebApp
 ## 4. Static site
 ```bash
 python3 scripts/gen-manifests.py          # refresh gallery manifests before publishing
+python3 scripts/projects.py render        # regenerate project detail pages from READMEs
 sudo mkdir -p /var/www/site
 sudo rsync -a --delete site/ /var/www/site/
 sudo chown -R www-data:www-data /var/www/site
@@ -121,6 +122,7 @@ Visit `https://postuptothe.net` and exercise the rebound demo end-to-end.
 cd ~/ReboundWebApp && git pull
 # static
 python3 scripts/gen-manifests.py
+python3 scripts/projects.py render
 sudo rsync -a --delete site/ /var/www/site/
 # backend (preserve the venv and models)
 sudo rsync -a rebound-app/ /opt/rebound-app/ --exclude venv --exclude models

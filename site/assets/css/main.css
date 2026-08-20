@@ -164,6 +164,29 @@ img { max-width: 100%; display: block; }
 }
 .card--placeholder { border-style: dashed; opacity: .75; }
 .card--placeholder .card__thumb { display: grid; place-items: center; color: var(--fg-faint); font-family: var(--mono); }
+.card__meta { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .5rem; }
+
+/* status badges */
+.badge {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .04em; text-transform: uppercase;
+  border-radius: 6px; padding: .15rem .5rem; border: 1px solid var(--border);
+}
+.badge--in-flight { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.badge--completed { color: var(--fg-faint); }
+.badge--featured { color: var(--accent-fg); background: var(--accent); border-color: var(--accent); }
+
+/* project detail links */
+.project-links { display: flex; gap: .8rem; flex-wrap: wrap; }
+
+/* pagination */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem; }
+.pagination__btn {
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--fg);
+  border-radius: 999px; padding: .45rem 1.1rem; font-size: .9rem; cursor: pointer;
+}
+.pagination__btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.pagination__btn:disabled { opacity: .4; cursor: default; }
+.pagination__info { font-family: var(--mono); font-size: .82rem; color: var(--fg-faint); }
 
 /* ---- prose (blog posts, case study) ------------------------------------- */
 .prose { max-width: 68ch; }

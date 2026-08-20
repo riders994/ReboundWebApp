@@ -1,0 +1,17 @@
+{
+  "projects": [
+    {
+      "slug": "rebounding",
+      "name": "NBA Rebound Predictor",
+      "blurb": "Interactive court where a neural net + random forest predict who grabs the rebound.",
+      "repo": "https://github.com/riders994/ReboundWebApp",
+      "webapp": "rebounding.html",
+      "tags": ["Python", "Flask", "Keras", "scikit-learn", "D3.js"],
+      "status": "in-flight",
+      "featured_at": "2026-08-19",
+      "completed_at": null,
+      "page": "custom",
+      "readme_branch": null
+    }
+  ]
+}
