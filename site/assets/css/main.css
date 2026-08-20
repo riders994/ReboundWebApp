@@ -188,6 +188,8 @@ img { max-width: 100%; display: block; }
 .resume-item__head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .resume-item__role { font-weight: 700; color: var(--fg); }
 .resume-item__meta { font-family: var(--mono); font-size: .82rem; color: var(--fg-faint); white-space: nowrap; }
+.resume-item ul { margin: .55rem 0 0; padding-left: 1.1rem; }
+.resume-item li { color: var(--fg-soft); margin-bottom: .35rem; }
 
 /* ---- blog / comedy lists ------------------------------------------------- */
 .post-list { list-style: none; padding: 0; margin: 0; }

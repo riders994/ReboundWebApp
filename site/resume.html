@@ -24,27 +24,63 @@
   </nav>
 
   <header class="section wrap">
-    <p class="eyebrow">Resume / CV</p>
+    <p class="eyebrow">Resume / CV · Washington, DC</p>
     <h1>Resume</h1>
-    <p class="lead">A summary of my experience. <a href="assets/resume.pdf">Download the PDF →</a></p>
-    <p class="todo">TODO: drop your real resume PDF at <code>assets/resume.pdf</code> and fill in the entries below.</p>
+    <p class="lead">
+      Data engineer and scientist with 7+ years of professional experience and a mathematics
+      degree, drawn to complex-systems problems at the intersection of engineering rigor and
+      analytical curiosity — owning migrations and infrastructure end to end, building for
+      extensibility, and mentoring engineers at scale. <a href="assets/resume.pdf">Download the full PDF →</a>
+    </p>
   </header>
 
   <section class="wrap" style="padding-bottom:2rem">
     <h2>Experience</h2>
+
     <div class="resume-item">
       <div class="resume-item__head">
-        <span class="resume-item__role">Role — Company</span>
-        <span class="resume-item__meta">20XX – Present</span>
+        <span class="resume-item__role">Software Engineer — Indeed Inc.</span>
+        <span class="resume-item__meta">Jul 2024 – Jul 2025 · Austin, TX</span>
       </div>
-      <p>TODO: one or two lines on what you did and the impact.</p>
+      <ul>
+        <li>Extended the APIs of TestStats and MCStats, Indeed's internal A/B testing platforms, adding power-analysis capabilities and letting MCStats delegate calculations to TestStats for better performance.</li>
+        <li>Contributed to migrating MCStats' query layer from IQL to Presto for more performant filtering, working across Python Flask routes and a Java backend.</li>
+      </ul>
     </div>
+
     <div class="resume-item">
       <div class="resume-item__head">
-        <span class="resume-item__role">Role — Company</span>
-        <span class="resume-item__meta">20XX – 20XX</span>
+        <span class="resume-item__role">Data Engineer — Indeed Inc.</span>
+        <span class="resume-item__meta">Nov 2019 – Jul 2024 · Austin, TX</span>
       </div>
-      <p>TODO: describe the role.</p>
+      <ul>
+        <li>Technical lead on Indeed's ATS migration from Workday to iCIMS: designed the ERD and bridge-table model merging 2.3M candidate and 32K job records, built Python API connectors for a streaming feed, and engineered an S3-based pagination-checkpoint system so large loads could fail and resume gracefully across Kubernetes pods — while extending GDPR erasure tooling to every new data relationship.</li>
+        <li>Drove the POC and full DAG migration of the Global Revenue Data Mart from Airflow to Dagster, catching a forked-Airflow blocker before it became costly and designing a cost-aware sensor architecture that minimized Snowflake token usage.</li>
+        <li>Built Terraform tooling to automate Snowflake role and permission assignment across a 400+ person engineering org; served as Git admin across three teams.</li>
+        <li>Led data development on a sales-segmentation tool and data mart with a $500M revenue impact; trained 150+ new BI hires on code-review and Git standards and conducted 40+ interviews over six years.</li>
+      </ul>
+    </div>
+
+    <div class="resume-item">
+      <div class="resume-item__head">
+        <span class="resume-item__role">BI Developer — Indeed Inc.</span>
+        <span class="resume-item__meta">Oct 2017 – Nov 2019 · Austin, TX</span>
+      </div>
+      <ul>
+        <li>Built automated Python tooling to calculate and distribute the marketing metrics required by senior leadership, saving hundreds of person-hours per month.</li>
+        <li>Developed Python/Jupyter reporting for marketing and sales, and helped shape the early Imhotep-to-Postgres query architecture that became the MSLT dashboard.</li>
+      </ul>
+    </div>
+
+    <div class="resume-item">
+      <div class="resume-item__head">
+        <span class="resume-item__role">Data Scientist, Client Manager — Position2</span>
+        <span class="resume-item__meta">Apr 2015 – Feb 2017 · Santa Clara, CA</span>
+      </div>
+      <ul>
+        <li>Built repeatable R-based reporting and data-comparison workflows for Fortune 500 clients (FICO, ChooseEnergy) and formalized an Optimizely-based A/B testing policy across client ad campaigns.</li>
+        <li>Presented data strategy and Quarterly Business Reviews to client leadership; managed AdWords bidding, keyword research, and cohort-based funnel analysis for major accounts.</li>
+      </ul>
     </div>
   </section>
 
@@ -52,21 +88,37 @@
     <h2>Education</h2>
     <div class="resume-item">
       <div class="resume-item__head">
-        <span class="resume-item__role">Degree — Institution</span>
-        <span class="resume-item__meta">20XX</span>
+        <span class="resume-item__role">Galvanize — Data Science Immersive</span>
+        <span class="resume-item__meta">Jun 2017 · Austin, TX</span>
       </div>
-      <p>TODO: field of study, honors, relevant coursework.</p>
+    </div>
+    <div class="resume-item">
+      <div class="resume-item__head">
+        <span class="resume-item__role">American University — B.S., Mathematics</span>
+        <span class="resume-item__meta">May 2014 · Washington, DC</span>
+      </div>
+      <p>2013 William Lowell Putnam Exam score: 10.</p>
     </div>
   </section>
 
-  <section class="wrap" style="padding-bottom:4rem">
+  <section class="wrap" style="padding-bottom:2rem">
     <h2>Skills</h2>
     <ul class="tags" style="margin-top:.8rem">
-      <li class="tag">Python</li><li class="tag">pandas / numpy</li><li class="tag">scikit-learn</li>
-      <li class="tag">Keras / TensorFlow</li><li class="tag">Flask</li><li class="tag">JavaScript</li>
-      <li class="tag">D3.js</li><li class="tag">SQL</li><li class="tag">AWS / EC2</li>
+      <li class="tag">Snowflake (SnowPro Core)</li><li class="tag">DBT</li><li class="tag">Kimball / dimensional modeling</li>
+      <li class="tag">SQL (Postgres / MySQL)</li><li class="tag">Dagster</li><li class="tag">Airflow</li>
+      <li class="tag">Terraform</li><li class="tag">Kubernetes</li><li class="tag">Docker</li><li class="tag">AWS (S3, EC2)</li>
+      <li class="tag">Python (pandas, scikit-learn, Keras, Flask)</li><li class="tag">R</li><li class="tag">Java</li>
+      <li class="tag">Random Forests</li><li class="tag">Neural Networks</li><li class="tag">A/B testing</li>
+      <li class="tag">Elo systems</li><li class="tag">GDPR / PII tooling</li><li class="tag">AI-assisted development</li>
     </ul>
-    <p class="muted" style="margin-top:1rem">TODO: adjust skills to match your resume.</p>
+  </section>
+
+  <section class="wrap" style="padding-bottom:4rem">
+    <h2>Certifications</h2>
+    <ul style="margin-top:.6rem; color:var(--fg-soft); padding-left:1.1rem">
+      <li>Snowflake SnowPro Core (COF-C03)</li>
+      <li>Cloudera Certified Associate — Apache Spark</li>
+    </ul>
   </section>
 
   <footer class="footer">
