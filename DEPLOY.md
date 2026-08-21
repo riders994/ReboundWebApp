@@ -105,6 +105,15 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 Visit `http://postuptothe.net` — the site should load over plain HTTP.
 
+> **Why the config caches `/assets/` for 7 days but carves out `*.json`.** Images/CSS/JS
+> get a long cache because they're effectively immutable — a changed asset gets a new
+> filename. The data/manifest JSON (`assets/data/*.json`, gallery `manifest.json`) is
+> different: `scripts/publish.sh` rewrites it **in place** and it can change often, so it's
+> given `Cache-Control: no-cache` (revalidate) instead. Without that carve-out, returning
+> visitors would keep seeing stale comedy/projects/gallery content for up to a week even
+> after a publish. Don't "tidy" the `location ~* \.json$` block back under the `/assets/`
+> rule. (nginx still serves Last-Modified/ETag, so an unchanged file 304s — near-zero cost.)
+
 ## 7. HTTPS (Let's Encrypt)
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -128,6 +137,23 @@ sudo rsync -a --delete site/ /var/www/site/
 sudo rsync -a rebound-app/ /opt/rebound-app/ --exclude venv --exclude models
 sudo systemctl restart rebound
 ```
+
+### Content updates from your laptop (`scripts/publish.sh`)
+For a **static-content** change (comedy tags/videos, projects, gallery images) you don't
+need to SSH in and pull. Run the update tool locally, then push the regenerated `site/`
+straight to the box:
+```bash
+cp scripts/publish.env.example scripts/publish.env   # one time: set PUBLISH_HOST (+ key)
+./scripts/publish.sh                                  # regenerate + rsync site/ -> /var/www/site
+```
+It rsyncs over SSH as root on the box (`--rsync-path="sudo rsync"`) and fixes ownership
+back to `www-data`. Grant those two commands passwordless sudo on the box so it doesn't
+prompt mid-sync — `sudo visudo`, then:
+```
+ubuntu ALL=(root) NOPASSWD: /usr/bin/rsync, /usr/bin/chown
+```
+See `scripts/README.md` for the full options (`-n` dry run, `-v` verbose). The backend is
+still deployed with the git-pull block above.
 
 ## The model file
 `FinalModel.pkl` (the RandomForest) is gitignored and not in the repo — copy it to the box

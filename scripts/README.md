@@ -120,3 +120,45 @@ deploy steps run it automatically.
 ## serve.sh
 
 Local dev entrypoint: refreshes manifests, then serves `site/`. `PORT=8080 ./scripts/serve.sh`.
+
+## publish.sh — push a content update to EC2
+
+After running any of the content tools above (comedy, projects, or dropping new gallery
+images), publish the result straight to the live box from your laptop — no git round-trip:
+
+```bash
+./scripts/publish.sh        # regenerate manifests + project pages, then rsync site/ to the box
+./scripts/publish.sh -n     # dry run: show what would change, transfer nothing
+./scripts/publish.sh -v     # verbose (per-file rsync output)
+./scripts/publish.sh -c     # also commit the regenerated site/ and push to origin
+```
+
+By default this **bypasses git** — the box can drift from the repo. Pass `-c`/`--commit` to
+keep history in sync: it stages `site/`, commits, and `git push`es *before* the rsync, so the
+commit matches exactly what goes live. Nothing to commit is fine (it skips); a failed push
+warns but still publishes. Override the message with `PUBLISH_COMMIT_MSG="…" ./scripts/publish.sh -c`.
+
+It runs the same generators as `serve.sh`, then `rsync -a --delete site/` into the web root
+over SSH. This covers the **static site only**; the rebound Flask backend + model are
+deployed separately (see `DEPLOY.md`).
+
+**One-time setup:**
+
+1. Copy the config template and fill in your host / key:
+   ```bash
+   cp scripts/publish.env.example scripts/publish.env
+   # edit scripts/publish.env — at minimum set PUBLISH_HOST
+   ```
+   `publish.env` is gitignored, so your IP and key path never get committed. (You can also
+   pass the values inline: `PUBLISH_HOST=... PUBLISH_KEY=... ./scripts/publish.sh`.)
+
+2. The web root (`/var/www/site`) is owned by `www-data`, so the script runs rsync as root
+   on the box via `--rsync-path="sudo rsync"` and then `chown`s the files back. Allow those
+   two commands without a password prompt — on the EC2 box, run `sudo visudo` and add:
+   ```
+   ubuntu ALL=(root) NOPASSWD: /usr/bin/rsync, /usr/bin/chown
+   ```
+   (Use your login user if not `ubuntu`.) Without this you'll be prompted for the remote
+   sudo password mid-sync.
+
+The macOS-bundled `rsync` (openrsync) is enough — the script sticks to flags it supports.

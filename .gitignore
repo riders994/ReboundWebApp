@@ -10,5 +10,8 @@ venv/
 rebound-app/venv/
 .venv/
 
+# Local publish config for scripts/publish.sh (host, SSH key path) — never commit.
+scripts/publish.env
+
 # OS
 .DS_Store
