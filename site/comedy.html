@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comedy — Rohan Vahalia</title>
+  <meta name="description" content="Stand-up and comedy performances by Rohan Vahalia.">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎤</text></svg>">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="index.html">Rohan Vahalia</a>
+      <button class="nav__toggle" aria-label="Menu" aria-expanded="false">☰</button>
+      <ul class="nav__links">
+        <li><a href="index.html#about">About</a></li>
+        <li><a href="projects/index.html">Projects</a></li>
+        <li><a href="resume.html">Resume</a></li>
+        <li><a href="blog/index.html">Blog</a></li>
+        <li><a href="comedy.html" aria-current="page">Comedy</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="section wrap">
+    <p class="eyebrow">Off the clock</p>
+    <h1>Comedy</h1>
+    <p class="lead">
+      My comedy is slice of life and observational. I talk about pop culture, history, food, politics, and, of course, my cat Larry. Stand-up sets and clips below —
+      the full collection lives on my
+      <a href="https://www.youtube.com/@RohanVComedy" target="_blank" rel="noopener">YouTube channel</a>.
+    </p>
+  </header>
+
+  <section class="wrap" style="padding-bottom:2rem">
+    <h2>Clips</h2>
+    <!-- Clips load from assets/data/comedy-clips.json; tags from comedy-tags.json (see that folder's README). -->
+    <div data-clips="assets/data/comedy-clips.json" data-tags="assets/data/comedy-tags.json" style="margin-top:1rem">
+      <p class="todo">Loading clips…</p>
+    </div>
+    <p style="margin-top:1.2rem"><a href="https://www.youtube.com/@RohanVComedy" target="_blank" rel="noopener">See all videos on YouTube →</a></p>
+  </section>
+
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span class="muted">© <span data-year>2026</span> Rohan Vahalia</span>
+      <ul class="footer__social">
+        <li><a href="mailto:r.vahalia@gmail.com">Email</a></li>
+        <li><a href="https://github.com/riders994">GitHub</a></li>
+        <li><a href="https://twitter.com/riders994" target="_blank" rel="noopener">Twitter</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

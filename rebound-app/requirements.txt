@@ -1,0 +1,12 @@
+# Rebound predictor backend.
+# NOTE: scikit-learn and tensorflow must match the versions used to train/save the
+# models (a RandomForest unpickles reliably only on the sklearn version that saved it).
+# Pin these two exactly once you retrain FinalModel.pkl.
+flask>=3.0
+flask-cors>=4.0
+gunicorn>=21.0
+numpy>=1.24,<2.0
+pandas>=2.0
+scikit-learn        # pin to the version that saved FinalModel.pkl
+tensorflow>=2.13    # for loading posnn.h5 (Keras). CPU build is fine.
+joblib>=1.3

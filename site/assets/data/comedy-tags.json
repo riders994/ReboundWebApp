@@ -1,0 +1,298 @@
+{
+  "categories": [
+    "location",
+    "date",
+    "subject",
+    "joke",
+    "show-name",
+    "tier",
+    "improv",
+    "one liner"
+  ],
+  "tags": {
+    "kkj": {
+      "label": "Knock-Knock Joke",
+      "category": "joke"
+    },
+    "crowdwork": {
+      "label": "Crowd Work",
+      "category": "subject"
+    },
+    "chi": {
+      "label": "Chicago",
+      "category": "location"
+    },
+    "abc": {
+      "label": "Adam's Bomb Comedy",
+      "category": "show-name"
+    },
+    "om": {
+      "label": "open mic",
+      "category": "tier"
+    },
+    "dc": {
+      "label": "Washington, DC",
+      "category": "location"
+    },
+    "riff": {
+      "label": "Riff Bucket",
+      "category": "improv"
+    },
+    "phi": {
+      "label": "Philadelphia, PA",
+      "category": "location"
+    },
+    "drakexan": {
+      "label": "Drake - Xanax",
+      "category": "joke"
+    },
+    "drake5": {
+      "label": "Drake - songs",
+      "category": "joke"
+    },
+    "drakedryl": {
+      "label": "Drake - benadryl",
+      "category": "joke"
+    },
+    "catdrugs": {
+      "label": "Cat - drugs",
+      "category": "joke"
+    },
+    "catdog": {
+      "label": "Cat - dog owner",
+      "category": "joke"
+    },
+    "catsoap": {
+      "label": "Cat - fight",
+      "category": "joke"
+    },
+    "catcrinkle": {
+      "label": "Cat - toys",
+      "category": "joke"
+    },
+    "lovegoat": {
+      "label": "Love Goat",
+      "category": "show-name"
+    },
+    "atx": {
+      "label": "Austin, TX",
+      "category": "location"
+    },
+    "txdegree": {
+      "label": "Texas - Dr. Pepper",
+      "category": "joke"
+    },
+    "txrace": {
+      "label": "Texas - racism",
+      "category": "joke"
+    },
+    "dicpic1": {
+      "label": "Dick pic 1",
+      "category": "joke"
+    },
+    "dicpic2": {
+      "label": "Dick pic 2",
+      "category": "joke"
+    },
+    "dicpic3": {
+      "label": "Dick pic 3",
+      "category": "joke"
+    },
+    "spicy": {
+      "label": "Food Origin Stories",
+      "category": "joke"
+    },
+    "britdog": {
+      "label": "British - dogs",
+      "category": "joke"
+    },
+    "britevil": {
+      "label": "British - belgians",
+      "category": "joke"
+    },
+    "britff": {
+      "label": "British - best friend",
+      "category": "joke"
+    },
+    "britpri": {
+      "label": "British - reverse colonization",
+      "category": "joke"
+    },
+    "allerjizz": {
+      "label": "Allergies - jizz",
+      "category": "joke"
+    },
+    "lobster": {
+      "label": "Allergies - lobster",
+      "category": "joke"
+    },
+    "covid": {
+      "label": "Covid one liners",
+      "category": "joke"
+    },
+    "dat-race": {
+      "label": "Dating - new racism",
+      "category": "joke"
+    },
+    "dat-serial": {
+      "label": "Dating - serial killer",
+      "category": "joke"
+    },
+    "dat-syona": {
+      "label": "Dating - girlfriend in canada",
+      "category": "joke"
+    },
+    "dat-period": {
+      "label": "Dating - period cape",
+      "category": "joke"
+    },
+    "dat-incl": {
+      "label": "Dating - inclusivity",
+      "category": "joke"
+    },
+    "dat-haram": {
+      "label": "Dating - Harambae",
+      "category": "joke"
+    },
+    "dat-qs": {
+      "label": "Dating - getting to know you",
+      "category": "joke"
+    },
+    "ww": {
+      "label": "Writer's womb",
+      "category": "one liner"
+    },
+    "apptind": {
+      "label": "Apps - tinder bots",
+      "category": "joke"
+    },
+    "appnumb": {
+      "label": "Apps - numbers game",
+      "category": "joke"
+    },
+    "appmarr": {
+      "label": "Apps - married and curious",
+      "category": "joke"
+    },
+    "apphinge": {
+      "label": "Apps - unhinged",
+      "category": "joke"
+    },
+    "appspon": {
+      "label": "Apps - spontaneous",
+      "category": "joke"
+    },
+    "l2c": {
+      "label": "Cooking - how to videos",
+      "category": "joke"
+    },
+    "placenta": {
+      "label": "Cooking - placenta",
+      "category": "joke"
+    },
+    "cake": {
+      "label": "Cooking - cake of the 3 milks",
+      "category": "joke"
+    },
+    "tupperware": {
+      "label": "Cooking - tupperware",
+      "category": "joke"
+    },
+    "laid-off": {
+      "label": "Lay offs - laid off",
+      "category": "joke"
+    },
+    "supportive": {
+      "label": "Lay offs - supportive girlfriend",
+      "category": "joke"
+    },
+    "jack-off": {
+      "label": "Lay offs - masturbation",
+      "category": "joke"
+    },
+    "linkedin": {
+      "label": "Lay offs - linkedin",
+      "category": "joke"
+    },
+    "defriend": {
+      "label": "Defriend the police",
+      "category": "one liner"
+    },
+    "aids": {
+      "label": "Magic Johnson AIDS",
+      "category": "one liner"
+    },
+    "beard-jokes": {
+      "label": "Racist relatives",
+      "category": "one liner"
+    },
+    "duck": {
+      "label": "Prude autocorrect",
+      "category": "one liner"
+    },
+    "sign": {
+      "label": "Buying a house signature",
+      "category": "one liner"
+    },
+    "mlc": {
+      "label": "mid life crisis",
+      "category": "one liner"
+    },
+    "pizza-hut": {
+      "label": "pizza hut",
+      "category": "one liner"
+    },
+    "libertarians": {
+      "label": "positive duties",
+      "category": "one liner"
+    },
+    "djk": {
+      "label": "dj khaled",
+      "category": "one liner"
+    },
+    "popcancer": {
+      "label": "broken microwave",
+      "category": "one liner"
+    },
+    "cc": {
+      "label": "cancer culture",
+      "category": "one liner"
+    },
+    "switch": {
+      "label": "Travel - switch",
+      "category": "one liner"
+    },
+    "west-coast": {
+      "label": "Travel - west coast cities",
+      "category": "joke"
+    },
+    "germany": {
+      "label": "Travel - germany",
+      "category": "joke"
+    },
+    "vegascab": {
+      "label": "Travel - vegas racism",
+      "category": "joke"
+    },
+    "vegasmob": {
+      "label": "Travel - vegas mob",
+      "category": "joke"
+    },
+    "hot-spain": {
+      "label": "Travel - barca airport",
+      "category": "joke"
+    },
+    "armangac": {
+      "label": "Armangac",
+      "category": "one liner"
+    },
+    "portugal": {
+      "label": "Travel - portugal",
+      "category": "joke"
+    },
+    "phrases": {
+      "label": "Travel - practicing phrases",
+      "category": "joke"
+    }
+  }
+}

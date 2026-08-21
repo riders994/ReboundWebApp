@@ -1,0 +1,5 @@
+# Install with: pip install -r scripts/requirements.txt
+# boto3: only for S3-backed photo feeds (scripts/feeds.json + gen-manifests.py).
+boto3>=1.28
+# markdown: for rendering project READMEs into detail pages (scripts/projects.py render).
+markdown>=3.5

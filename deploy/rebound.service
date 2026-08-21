@@ -1,0 +1,19 @@
+# systemd unit for the rebound predictor backend (gunicorn).
+# Install to /etc/systemd/system/rebound.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now rebound
+# Adjust User and paths to match your EC2 setup.
+
+[Unit]
+Description=Rebound predictor (gunicorn)
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/rebound-app
+Environment="PORT=8000"
+ExecStart=/opt/rebound-app/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 app:app
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
