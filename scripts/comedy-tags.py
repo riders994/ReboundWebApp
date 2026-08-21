@@ -7,11 +7,12 @@ registered with register-tag.py — that's the formal process for managing the t
 vocabulary; this tool just applies them. Any flow given an unregistered tag errors out.
 
 Usage:
-  comedy-tags.py add    <VIDEO_ID|URL> [--tags kkj chi]   # submit a new video (title auto-fetched)
+  comedy-tags.py add    <VIDEO_ID|URL> [--tags kkj chi]   # submit a new video (title + date auto-fetched)
   comedy-tags.py tag    <VIDEO_ID> kkj chi     # add tags to an existing video
   comedy-tags.py untag  <VIDEO_ID> chi         # remove tags from a video
   comedy-tags.py videos                        # list videos with their resolved tags
   comedy-tags.py tags                          # list the registry (read-only)
+  comedy-tags.py backfill-dates                # fill in missing upload dates for existing videos
 """
 import argparse
 import sys
@@ -51,8 +52,9 @@ def cmd_videos(args):
     for entry in clips:
         c = cd.norm_clip(entry)
         title = c.get("title", "(untitled)")
+        date = c.get("date", "----------")
         labels = [reg["tags"].get(t, {}).get("label", t + "?") for t in c["tags"]]
-        print(f"{c['id']}  {title}")
+        print(f"{c['id']}  {date}  {title}")
         print(f"    tags: {', '.join(labels) if labels else '(none)'}")
 
 
@@ -80,9 +82,20 @@ def cmd_add(args):
         else:
             print("  (couldn't fetch title from YouTube — pass --title to set one)")
 
+    # Date: proxy for performance date; use --date if given, else scrape the upload date.
+    date = args.date
+    if not date:
+        date = cd.fetch_youtube_upload_date(vid)
+        if date:
+            print(f"  fetched upload date: {date}")
+        else:
+            print("  (couldn't fetch upload date — pass --date YYYY-MM-DD to set one)")
+
     entry = {"id": vid}
     if title:
         entry["title"] = title
+    if date:
+        entry["date"] = date
     entry["tags"] = list(dict.fromkeys(codes))  # dedupe, keep order
 
     if idx >= 0:
@@ -96,6 +109,25 @@ def cmd_add(args):
     labels = [reg["tags"][c]["label"] for c in entry["tags"]]
     print(f"{action} {vid}" + (f" — {args.title}" if args.title else ""))
     print(f"    tags: {', '.join(labels) if labels else '(none)'}")
+
+
+def cmd_backfill_dates(args):
+    clips = cd.load_clips()
+    filled = 0
+    for i, entry in enumerate(clips):
+        c = cd.norm_clip(entry)
+        if c.get("date") and not args.force:
+            continue
+        date = cd.fetch_youtube_upload_date(c["id"])
+        if date:
+            c["date"] = date
+            clips[i] = c
+            filled += 1
+            print(f"  {c['id']}  {date}")
+        else:
+            print(f"  {c['id']}  (couldn't fetch — skipped)")
+    cd.save_clips(clips)
+    print(f"filled {filled} date(s)")
 
 
 def cmd_tag(args):
@@ -136,9 +168,14 @@ def main():
     a = sub.add_parser("add", help="submit a new video (optionally with tags)")
     a.add_argument("video", help="YouTube video id or URL")
     a.add_argument("--title", help="caption shown on the site (default: fetched from YouTube)")
+    a.add_argument("--date", help="upload/performance date YYYY-MM-DD (default: fetched from YouTube)")
     a.add_argument("--tags", nargs="*", default=[], help="registered tag codes to apply")
     a.add_argument("--force", action="store_true", help="overwrite if the video already exists")
     a.set_defaults(func=cmd_add)
+
+    bf = sub.add_parser("backfill-dates", help="fill in missing upload dates for existing videos")
+    bf.add_argument("--force", action="store_true", help="re-fetch even videos that already have a date")
+    bf.set_defaults(func=cmd_backfill_dates)
 
     t = sub.add_parser("tag", help="add tags to a video")
     t.add_argument("video_id")

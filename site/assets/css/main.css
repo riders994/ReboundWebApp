@@ -188,6 +188,29 @@ img { max-width: 100%; display: block; }
 .pagination__btn:disabled { opacity: .4; cursor: default; }
 .pagination__info { font-family: var(--mono); font-size: .82rem; color: var(--fg-faint); }
 
+/* ---- carousel (Resume featured projects) -------------------------------- */
+.carousel { position: relative; margin-top: 1rem; }
+.carousel__track {
+  display: flex; gap: 1.5rem; overflow-x: auto; scroll-snap-type: x mandatory;
+  scroll-behavior: smooth; padding: .25rem .1rem 1rem; scrollbar-width: thin;
+}
+.carousel__track > .card { flex: 0 0 300px; scroll-snap-align: start; }
+.carousel__btn {
+  position: absolute; top: 38%; z-index: 2; width: 2.6rem; height: 2.6rem;
+  display: grid; place-items: center; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--fg-soft);
+  font-size: 1.5rem; line-height: 1; cursor: pointer; box-shadow: var(--shadow);
+  transition: color .15s ease, border-color .15s ease, opacity .15s ease;
+}
+.carousel__btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.carousel__btn:disabled { opacity: 0; pointer-events: none; }
+.carousel__btn--prev { left: -.4rem; }
+.carousel__btn--next { right: -.4rem; }
+@media (max-width: 640px) {
+  .carousel__track > .card { flex-basis: 84%; }
+  .carousel__btn { display: none; }  /* swipe on touch */
+}
+
 /* ---- prose (blog posts, case study) ------------------------------------- */
 .prose { max-width: 68ch; }
 .prose h2 { margin-top: 2.4rem; }
@@ -238,6 +261,16 @@ img { max-width: 100%; display: block; }
   align-self: flex-start; background: none; border: 0; color: var(--accent);
   cursor: pointer; font-size: .85rem; text-decoration: underline; padding: .2rem 0;
 }
+
+.pager { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem; }
+.pager__btn {
+  font-size: .85rem; border: 1px solid var(--border); background: var(--bg-card); color: var(--fg-soft);
+  border-radius: 999px; padding: .35rem 1rem; cursor: pointer;
+  transition: color .15s ease, border-color .15s ease;
+}
+.pager__btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.pager__btn:disabled { opacity: .4; cursor: default; }
+.pager__status { font-family: var(--mono); font-size: .8rem; color: var(--fg-faint); }
 
 .shows { list-style: none; padding: 0; margin: 1.5rem 0 0; }
 .shows li { display: flex; gap: 1rem; align-items: baseline; padding: .7rem 0; border-bottom: 1px solid var(--border); }

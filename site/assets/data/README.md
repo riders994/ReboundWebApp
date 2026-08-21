@@ -1,17 +1,23 @@
 # Comedy clips
 
 `comedy-clips.json` drives the Clips grid on `comedy.html`. It's a JSON array; each entry is
-a YouTube video. Use either the bare video ID or an object with a title:
+a YouTube video. Use either the bare video ID or an object with a title and date:
 
 ```json
 [
   "dQw4w9WgXcQ",
-  { "id": "dQw4w9WgXcQ", "title": "My Tight Five at the Comedy Cellar" }
+  { "id": "dQw4w9WgXcQ", "title": "My Tight Five at the Comedy Cellar", "date": "2024-05-01" }
 ]
 ```
 
 The **video ID** is the part after `watch?v=` in a YouTube URL
 (`https://www.youtube.com/watch?v=`**`dQw4w9WgXcQ`**), or after `youtu.be/`.
+
+The optional **`date`** (`YYYY-MM-DD`) is the video's upload date, used as a proxy for the
+performance date. The Comedy page sorts by it (a **Sort: Newest / Oldest** control, with the
+choice reflected in the URL as `?csort=old`) and paginates the grid **9 per page** (3×3). The
+`add` command fills `date` in automatically by scraping the upload date; undated clips sort
+last. `python3 scripts/comedy-tags.py backfill-dates` fills in any missing dates in bulk.
 
 ## Tags
 
@@ -30,11 +36,12 @@ vocabulary and applying it to videos are two separate steps:
 python3 scripts/register-tag.py add kkj --label "Knock-Knock Joke" --category joke
 python3 scripts/register-tag.py list
 
-# operational: submit a new video (id or URL; title auto-fetched from YouTube), or tag one
+# operational: submit a new video (id or URL; title + upload date auto-fetched), or tag one
 python3 scripts/comedy-tags.py add   "https://youtu.be/VIDEOID" --tags kkj
 python3 scripts/comedy-tags.py tag   <VIDEO_ID> kkj chi
 python3 scripts/comedy-tags.py untag <VIDEO_ID> chi
-python3 scripts/comedy-tags.py videos    # list videos + their tags
+python3 scripts/comedy-tags.py videos          # list videos + their date + tags
+python3 scripts/comedy-tags.py backfill-dates  # fill in any missing upload dates
 ```
 
 Add or reorder entries here, reload the page, and the embeds update. An empty array shows a

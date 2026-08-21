@@ -25,6 +25,10 @@
   var clips = document.querySelector('[data-clips]');
   if (clips) initClips(clips);
 
+  // Projects carousel (Resume page): featured + in-flight projects, horizontally scrollable.
+  var projectCarousel = document.querySelector('[data-project-carousel]');
+  if (projectCarousel) initProjectCarousel(projectCarousel);
+
   var CATEGORY_LABELS = { location: 'Location', date: 'Date', subject: 'Subject', joke: 'Jokes' };
 
   function initClips(el) {
@@ -56,14 +60,21 @@
       }).filter(function (g) { return g.codes.length > 0; });
 
       var selected = new Set(readSelectedTags());
+      var sortDir = readSort();   // 'new' (default, newest first) or 'old'
+      var page = 1;
+      var PAGE_SIZE = 9;          // 3×3 grid per page
 
       el.innerHTML = '';
       var filterBar = document.createElement('div');
       filterBar.className = 'filters';
       var grid = document.createElement('div');
-      grid.className = 'grid grid--2 clips-grid';
+      grid.className = 'grid grid--3 clips-grid';
+      var pager = document.createElement('nav');
+      pager.className = 'pager';
+      pager.setAttribute('aria-label', 'Clip pages');
       el.appendChild(filterBar);
       el.appendChild(grid);
+      el.appendChild(pager);
 
       function passes(clip) {
         // Faceted: within a category any selected tag matches (OR); across categories all
@@ -73,6 +84,14 @@
           if (picked.length === 0) return true;
           return picked.some(function (code) { return clip.tags.indexOf(code) !== -1; });
         });
+      }
+
+      function byDate(a, b) {
+        // Undated clips always sort last, regardless of direction.
+        if (!a.date || !b.date) return (!a.date ? 1 : 0) - (!b.date ? 1 : 0);
+        if (a.date === b.date) return 0;
+        var cmp = a.date < b.date ? -1 : 1;
+        return sortDir === 'old' ? cmp : -cmp;
       }
 
       function render() {
@@ -105,18 +124,61 @@
           clear.type = 'button';
           clear.className = 'filters__clear';
           clear.textContent = 'Clear filters';
-          clear.addEventListener('click', function () { selected.clear(); writeSelectedTags(selected); render(); });
+          clear.addEventListener('click', function () { selected.clear(); writeSelectedTags(selected); page = 1; render(); });
           filterBar.appendChild(clear);
         }
 
-        // grid
-        var visible = clips.filter(passes);
+        // sort control (always shown)
+        var sortRow = document.createElement('div');
+        sortRow.className = 'filter-group';
+        var sortLab = document.createElement('span');
+        sortLab.className = 'filter-group__label';
+        sortLab.textContent = 'Sort';
+        sortRow.appendChild(sortLab);
+        [['new', 'Newest'], ['old', 'Oldest']].forEach(function (opt) {
+          var chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'chip' + (sortDir === opt[0] ? ' is-active' : '');
+          chip.setAttribute('aria-pressed', sortDir === opt[0] ? 'true' : 'false');
+          chip.textContent = opt[1];
+          chip.addEventListener('click', function () {
+            if (sortDir === opt[0]) return;
+            sortDir = opt[0]; writeSort(sortDir); page = 1; render();
+          });
+          sortRow.appendChild(chip);
+        });
+        filterBar.appendChild(sortRow);
+
+        // grid: filter → sort → paginate
+        var visible = clips.filter(passes).sort(byDate);
         grid.innerHTML = '';
+        pager.innerHTML = '';
         if (visible.length === 0) {
           grid.innerHTML = '<p class="muted">No clips match those tags.</p>';
           return;
         }
-        visible.forEach(function (clip) { grid.appendChild(buildClipCard(clip)); });
+        var pages = Math.ceil(visible.length / PAGE_SIZE);
+        if (page > pages) page = pages;
+        var start = (page - 1) * PAGE_SIZE;
+        visible.slice(start, start + PAGE_SIZE).forEach(function (clip) {
+          grid.appendChild(buildClipCard(clip));
+        });
+        renderPager(pages);
+      }
+
+      function renderPager(pages) {
+        if (pages <= 1) return;
+        pager.appendChild(pagerButton('‹ Prev', page > 1, function () { page -= 1; render(); focusClips(); }));
+        var status = document.createElement('span');
+        status.className = 'pager__status';
+        status.textContent = 'Page ' + page + ' of ' + pages;
+        pager.appendChild(status);
+        pager.appendChild(pagerButton('Next ›', page < pages, function () { page += 1; render(); focusClips(); }));
+      }
+
+      function focusClips() {
+        // Keep the grid in view when paging from the bottom of a long page.
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
       render();
@@ -124,8 +186,11 @@
   }
 
   function normClip(item) {
-    if (typeof item === 'string') return { id: item, title: '', tags: [] };
-    return { id: item.id, title: item.title || '', tags: Array.isArray(item.tags) ? item.tags : [] };
+    if (typeof item === 'string') return { id: item, title: '', date: '', tags: [] };
+    return {
+      id: item.id, title: item.title || '', date: item.date || '',
+      tags: Array.isArray(item.tags) ? item.tags : []
+    };
   }
 
   function buildClipCard(clip) {
@@ -163,6 +228,29 @@
     return figure;
   }
 
+  function pagerButton(label, enabled, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pager__btn';
+    b.textContent = label;
+    b.disabled = !enabled;
+    if (enabled) b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function readSort() {
+    var m = /[?&]csort=(new|old)\b/.exec(location.search);
+    return m ? m[1] : 'new';
+  }
+
+  function writeSort(dir) {
+    var params = new URLSearchParams(location.search);
+    if (dir === 'old') params.set('csort', 'old');
+    else params.delete('csort');
+    var qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  }
+
   function readSelectedTags() {
     var m = /[?&]ctags=([^&]+)/.exec(location.search);
     return m ? decodeURIComponent(m[1]).split(',').filter(Boolean) : [];
@@ -174,6 +262,143 @@
     else params.delete('ctags');
     var qs = params.toString();
     history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  }
+
+  // --- Projects carousel -----------------------------------------------------
+  // Selection + card markup mirror assets/js/projects.js so the Resume carousel and the
+  // Projects page agree on what "featured" means; paths are configurable via data- attrs
+  // because this runs off the projects/ directory.
+  var FEATURED_LIMIT = 5;
+
+  function initProjectCarousel(el) {
+    var dataUrl = el.getAttribute('data-project-carousel');
+    var pageBase = el.getAttribute('data-project-page-base') || '';
+    var thumbBase = el.getAttribute('data-project-thumb-base') || '';
+    fetch(dataUrl)
+      .then(function (r) { return r.ok ? r.json() : { projects: [] }; })
+      .then(function (data) { renderProjectCarousel(el, data.projects || [], pageBase, thumbBase); })
+      .catch(function () { el.innerHTML = '<p class="muted">Couldn’t load projects.</p>'; });
+  }
+
+  function featuredProjectSet(projects) {
+    // The FEATURED_LIMIT projects with the most recent featured_at (same rule as projects.js).
+    var dated = projects.filter(function (p) { return p.featured_at; });
+    dated.sort(function (a, b) { return a.featured_at < b.featured_at ? 1 : -1; });
+    var set = {};
+    dated.slice(0, FEATURED_LIMIT).forEach(function (p) { set[p.slug] = true; });
+    return set;
+  }
+
+  function renderProjectCarousel(el, projects, pageBase, thumbBase) {
+    var featured = featuredProjectSet(projects);
+    var items = projects
+      .filter(function (p) { return featured[p.slug] || p.status === 'in-flight'; })
+      .sort(function (a, b) {
+        var fa = featured[a.slug] ? (a.featured_at || '') : '';
+        var fb = featured[b.slug] ? (b.featured_at || '') : '';
+        return fa < fb ? 1 : fa > fb ? -1 : 0;
+      });
+
+    el.innerHTML = '';
+    if (items.length === 0) {
+      el.innerHTML = '<p class="muted">No featured or in-flight projects yet.</p>';
+      return;
+    }
+
+    var track = document.createElement('div');
+    track.className = 'carousel__track';
+    items.forEach(function (p) { track.appendChild(projectCard(p, featured[p.slug], pageBase, thumbBase)); });
+
+    var prev = carouselArrow('‹', 'prev');
+    var next = carouselArrow('›', 'next');
+    el.appendChild(prev);
+    el.appendChild(track);
+    el.appendChild(next);
+
+    function step(dir) {
+      var card = track.querySelector('.card');
+      var by = card ? card.getBoundingClientRect().width + 24 : track.clientWidth * 0.8;
+      track.scrollBy({ left: dir * by, behavior: 'smooth' });
+    }
+    prev.addEventListener('click', function () { step(-1); });
+    next.addEventListener('click', function () { step(1); });
+
+    function updateArrows() {
+      // Threshold absorbs sub-pixel scroll positions left by scroll-snap (e.g. 1.5px).
+      var max = track.scrollWidth - track.clientWidth;
+      prev.disabled = track.scrollLeft <= 4;
+      next.disabled = track.scrollLeft >= max - 4;
+    }
+    track.addEventListener('scroll', updateArrows);
+    window.addEventListener('resize', updateArrows);
+    updateArrows();
+  }
+
+  function carouselArrow(glyph, kind) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'carousel__btn carousel__btn--' + kind;
+    b.setAttribute('aria-label', kind === 'prev' ? 'Previous projects' : 'Next projects');
+    b.textContent = glyph;
+    return b;
+  }
+
+  function projectCard(p, isFeatured, pageBase, thumbBase) {
+    var a = document.createElement('a');
+    a.className = 'card';
+    a.href = pageBase + (p.slug || '') + '.html';
+
+    var thumb = document.createElement('img');
+    thumb.className = 'card__thumb';
+    thumb.alt = p.name || '';
+    thumb.loading = 'lazy';
+    thumb.src = thumbBase + p.slug + '-thumb.png';
+    thumb.onerror = function () { thumb.style.background = 'var(--bg-soft)'; thumb.removeAttribute('src'); };
+    a.appendChild(thumb);
+
+    var body = document.createElement('div');
+    body.className = 'card__body';
+
+    var meta = document.createElement('div');
+    meta.className = 'card__meta';
+    meta.appendChild(projectBadge(p.status === 'completed' ? 'Completed' : 'In flight',
+      p.status === 'completed' ? 'completed' : 'in-flight'));
+    if (isFeatured) meta.appendChild(projectBadge('★ Featured', 'featured'));
+    body.appendChild(meta);
+
+    var h = document.createElement('h3');
+    h.className = 'card__title';
+    h.textContent = p.name || p.slug;
+    body.appendChild(h);
+
+    if (p.blurb) {
+      var blurb = document.createElement('p');
+      blurb.className = 'card__blurb';
+      blurb.textContent = p.blurb;
+      body.appendChild(blurb);
+    }
+
+    if (p.tags && p.tags.length) {
+      var tags = document.createElement('ul');
+      tags.className = 'tags';
+      p.tags.forEach(function (t) {
+        var li = document.createElement('li');
+        li.className = 'tag';
+        li.textContent = t;
+        tags.appendChild(li);
+      });
+      body.appendChild(tags);
+    }
+
+    a.appendChild(body);
+    return a;
+  }
+
+  function projectBadge(text, kind) {
+    var s = document.createElement('span');
+    s.className = 'badge badge--' + kind;
+    s.textContent = text;
+    return s;
   }
 
   function initSlideshow(el) {

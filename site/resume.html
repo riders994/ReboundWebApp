@@ -84,7 +84,19 @@
     </div>
   </section>
 
-  <section class="wrap section--soft" style="padding:2.5rem 1.25rem; border-radius:12px; margin:0 1.25rem 3rem">
+  <section class="wrap" style="padding-bottom:2rem">
+    <h2>Featured Projects</h2>
+    <!-- Carousel of featured + in-flight projects; data from assets/data/projects.json (see projects/ page). -->
+    <div class="carousel"
+         data-project-carousel="assets/data/projects.json"
+         data-project-page-base="projects/"
+         data-project-thumb-base="assets/img/">
+      <p class="muted">Loading projects…</p>
+    </div>
+    <p style="margin-top:1.2rem"><a href="projects/index.html">See all projects →</a></p>
+  </section>
+
+  <section class="wrap" style="padding-bottom:2rem">
     <h2>Education</h2>
     <div class="resume-item">
       <div class="resume-item__head">

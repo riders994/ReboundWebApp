@@ -50,6 +50,23 @@ def fetch_youtube_title(video_id, timeout=10):
         return None
 
 
+def fetch_youtube_upload_date(video_id, timeout=10):
+    """Fetch a public video's upload date (YYYY-MM-DD) by scraping the watch page.
+
+    YouTube has no keyless date endpoint, so we read the ``uploadDate`` field the
+    watch page embeds for search engines. Returns the date string, or None on any
+    failure (network, private/unavailable video, markup change).
+    """
+    url = "https://www.youtube.com/watch?v=" + video_id
+    try:
+        with urlopen(Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=timeout) as resp:
+            html = resp.read().decode("utf-8", "replace")
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError):
+        return None
+    m = re.search(r'"uploadDate":"([0-9]{4}-[0-9]{2}-[0-9]{2})', html)
+    return m.group(1) if m else None
+
+
 def _load(path, default):
     return json.loads(path.read_text()) if path.exists() else default
 
