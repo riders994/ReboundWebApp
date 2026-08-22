@@ -175,9 +175,26 @@ def _render_body(project):
     owner, repo = pd.parse_repo(project.get("repo", ""))
     if not owner:
         return "<p><em>No repo configured and no local override.</em></p>", "empty"
-    text, base = pd.fetch_readme(owner, repo, project.get("readme_branch"))
+    text, base, status = pd.fetch_readme(owner, repo, project.get("readme_branch"))
+    if status == "missing":
+        # The repo is reachable and genuinely has no README. Say so plainly rather than
+        # implying a failure -- there is nothing here to retry.
+        return (
+            f'<p><em>This project doesn\'t have a README yet. '
+            f'<a href="{html.escape(project["repo"])}" target="_blank" rel="noopener">'
+            f'Browse the code on GitHub</a> in the meantime.</em></p>',
+            "no-readme",
+        )
     if text is None:
-        return f"<p><em>Could not fetch README from {html.escape(project['repo'])}.</em></p>", "fetch-failed"
+        # Transient: network, rate limit, or a non-404 from GitHub. Distinct from
+        # "missing" on purpose -- re-running the render may well fix it, and the page
+        # must not claim the README doesn't exist.
+        return (
+            f"<p><em>Could not fetch the README from "
+            f"{html.escape(project['repo'])} — this page will fill in on the next "
+            f"successful render.</em></p>",
+            "fetch-failed",
+        )
     return _rewrite_relative(pd.render_markdown(text), base), "readme"
 
 
