@@ -3,14 +3,14 @@
     {
       "slug": "rebounding",
       "name": "NBA Rebound Predictor",
-      "blurb": "Interactive court where a neural net + random forest predict who grabs the rebound.",
+      "blurb": "Interactive court where a movement model and a LightGBM ranker predict who grabs the rebound.",
       "repo": "https://github.com/riders994/ReboundingPrediction",
       "webapp": "rebounding.html",
       "tags": [
         "Python",
         "Flask",
-        "Keras",
-        "scikit-learn",
+        "PyTorch",
+        "LightGBM",
         "D3.js"
       ],
       "status": "completed",
