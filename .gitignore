@@ -1,7 +1,15 @@
-# Models are large / retrained out of band — keep FinalModel.pkl out of git.
-# (posnn.h5 and msd.pkl were committed historically and stay tracked.)
-FinalModel.pkl
-rebound-app/models/FinalModel.pkl
+# Model weights never enter git. They are built in the ReboundingPrediction repo
+# (`python -m rebounding.cli train` / `train-movement`) and copied in.
+#
+# The bundles carry their own provenance — build commit, corpus SHA, library versions,
+# test scores — so `/healthz` and `rebounding.cli describe` can answer "what is
+# deployed?" from the deployed file alone. That is what makes a copy-in workflow safe,
+# and it is what was missing when FinalModel.pkl was lost in 2017.
+#
+# posnn.h5 and msd.pkl were tracked historically; they were removed when the pipeline
+# was retrained and nothing loads them any more.
+*.pkl
+*.h5
 
 # Python
 __pycache__/

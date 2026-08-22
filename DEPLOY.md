@@ -81,20 +81,33 @@ sudo chown -R www-data:www-data /var/www/site
 sudo rsync -a rebound-app/ /opt/rebound-app/
 cd /opt/rebound-app
 python3 -m venv venv
+# CPU wheel first, or pip drags in ~2.5 GB of CUDA for an 800k-parameter model.
+./venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
 ./venv/bin/pip install -r requirements.txt
+# The feature code. Unpickling the bundles imports this, so it is a hard dependency:
+./venv/bin/pip install 'rebounding[models] @ git+https://github.com/riders994/ReboundingPrediction@modernize-py3'
 
-# Drop your retrained model in place (see note below):
+# Copy both bundles into place (see "The model files" below) BEFORE first start —
+# the service refuses to start without the rebounder:
 #   /opt/rebound-app/models/FinalModel.pkl
+#   /opt/rebound-app/models/MovementModel.pkl
 
 sudo cp ~/ReboundWebApp/deploy/rebound.service /etc/systemd/system/rebound.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now rebound
 systemctl status rebound          # active (running)
-curl -s localhost:8000/health     # {"status":"ok","models_ready":true|false}
+curl -s localhost:8000/healthz    # reports WHICH model is live
 ```
-> If `models_ready` is `false`, the app still runs in **fallback mode** (placeholder
-> probabilities) so the page works — upload `FinalModel.pkl` and `sudo systemctl restart
-> rebound` to switch to real predictions.
+`/healthz` returns the deployed bundle's own provenance — build commit, corpus, fit,
+test score — which is the only way to identify weights that never enter git:
+```json
+{"status":"ok","movement_model":"set-transformer",
+ "model":{"features":27,"regime":"served","commit":"d779a8d…","test_top1":0.2969}}
+```
+> **There is no fallback mode any more.** A missing `FinalModel.pkl` is a refusal to
+> start, not placeholder probabilities served silently. A missing `MovementModel.pkl`
+> *is* fail-soft: probabilities are unaffected and players simply stay where they were
+> placed — `movement_model` reads `none` and `movement_detail` says why.
 
 ## 6. nginx
 ```bash
@@ -155,19 +168,39 @@ ubuntu ALL=(root) NOPASSWD: /usr/bin/rsync, /usr/bin/chown
 See `scripts/README.md` for the full options (`-n` dry run, `-v` verbose). The backend is
 still deployed with the git-pull block above.
 
-## The model file
-`FinalModel.pkl` (the RandomForest) is gitignored and not in the repo — copy it to the box
-manually, e.g. from your laptop:
+## The model files
+Both bundles are gitignored and never in the repo. Build them in the
+**ReboundingPrediction** repo (`python -m rebounding.cli train` / `train-movement`) and
+copy them to the box:
 ```bash
-scp -i postup.pem FinalModel.pkl ubuntu@<ELASTIC_IP>:/opt/rebound-app/models/
+scp -i postup.pem FinalModel.pkl MovementModel.pkl ubuntu@<ELASTIC_IP>:/opt/rebound-app/models/
 sudo systemctl restart rebound
+curl -s localhost:8000/healthz    # confirm the commit you expect is live
 ```
-It must be pickled with the **same scikit-learn version** listed in
-`rebound-app/requirements.txt`, or it won't unpickle. Pin that version once you retrain.
+They are `joblib.dump` of a dataclass bundle, not bare estimators, so the versions in
+`rebound-app/requirements.txt` are **pinned, not floored** — unpickling reconstructs
+numpy/pandas objects and imports `rebounding`, so a drifting minor version is a runtime
+failure rather than a warning. Note `numpy==2.5.2`: the pre-rewrite pin was
+`numpy>=1.24,<2.0` and is incompatible.
+
+`SourceOfTruth.pkl` from that repo is **not** deployable here — it needs rim-time and
+velocity features that do not exist when a visitor is placing dots, and `serve.predict`
+refuses it.
 
 ## Troubleshooting
 - `journalctl -u rebound -e` — backend logs (model load warnings, prediction errors).
 - `sudo tail -f /var/log/nginx/error.log` — proxy / static errors.
 - 502 on `/api/rebound/predict` → the `rebound` service isn't running or crashed on model load.
+- **Worker fails to boot with `ModuleNotFoundError: No module named 'flask_cors'`** → you set
+  `REBOUND_CORS_ORIGINS` without installing the optional dependency. `flask-cors` is commented
+  out in `requirements.txt` because same-origin serving does not need it, but setting the env
+  var makes the import unconditional, so this is a hard crash rather than a warning. Either
+  `pip install flask-cors` or unset the variable. Only needed when the site and API are on
+  different origins — in production nginx puts them on the same one.
+- **`/healthz` returns 200 but `/predict` hangs until the worker is SIGKILLed** → something
+  set `preload_app = True` in `gunicorn.conf.py`. Preloading builds the torch movement
+  network in the master and the sync worker forks without exec, inheriting a thread pool
+  whose threads did not survive; `/healthz` still answers because it touches no tensors.
+  It must stay `False`. Pinned by `rebound-app/tests/test_deploy_config.py`.
 - Demo calls `/api/rebound/predict`; nginx strips `/api/rebound/` → gunicorn `/predict`.
   Keep the two in sync if you rename the location.
