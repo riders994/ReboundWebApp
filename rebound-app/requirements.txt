@@ -3,9 +3,9 @@
 # The feature code lives in the `rebounding` package, not here -- there is exactly one
 # definition of a feature and it is in the ReboundingPrediction repo. Install it from a
 # checkout beside this one:
-#   pip install -e ../ReboundingPrediction[models]
+#   pip install -e '../ReboundingPrediction[serve]'
 # or straight from git:
-#   pip install 'rebounding[models] @ git+https://github.com/riders994/ReboundingPrediction@modernize-py3'
+#   pip install 'rebounding[serve] @ git+https://github.com/riders994/ReboundingPrediction@<commit>'
 #
 # Versions below are the ones the shipped bundles were BUILT with (python 3.12.3).
 # They are pinned rather than floored because the artifacts are pickled dataclass

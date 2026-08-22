@@ -37,7 +37,7 @@ cd rebound-app
 python3 -m venv venv
 ./venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
 ./venv/bin/pip install -r requirements.txt
-./venv/bin/pip install -e ../../ReboundingPrediction[models]   # the feature code
+./venv/bin/pip install -e '../../ReboundingPrediction[serve]'  # the feature code
 ./venv/bin/gunicorn -c gunicorn.conf.py wsgi:app               # http://127.0.0.1:8000
 
 curl -s http://127.0.0.1:8000/healthz          # which model is live
