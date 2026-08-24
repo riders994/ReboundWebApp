@@ -20,6 +20,11 @@ Environment="PORT=8000"
 # Movement model is optional and fail-soft; set to 0 to serve probabilities only
 # and leave every player where he was placed.
 Environment="REBOUND_MOVEMENT=1"
+# Worker count. gunicorn.conf.py defaults to min(4, cpu_count), and workers do NOT share
+# model memory (preload_app is off — it deadlocks torch across a fork), so each one costs
+# ~430 MB. Two workers measure ~690 MB total. Pin this if you resize the instance, or a
+# 4-vCPU box will quietly spawn 4 workers and want ~1.4 GB.
+Environment="WEB_CONCURRENCY=2"
 ExecStart=/opt/rebound-app/venv/bin/gunicorn -c gunicorn.conf.py wsgi:app
 Restart=on-failure
 RestartSec=5

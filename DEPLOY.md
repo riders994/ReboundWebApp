@@ -7,16 +7,30 @@ The site has two parts:
 - **`rebound-app/`** — Flask app for the live rebound demo, run under gunicorn and
   reverse-proxied by nginx at `/api/rebound/`.
 
-Assumes Ubuntu 22.04/24.04 on EC2 and a shell user named `ubuntu`.
+Assumes **Ubuntu 24.04** on EC2 and a shell user named `ubuntu`.
+
+> **24.04, not 22.04.** The pinned stack needs **Python ≥ 3.12** — `numpy==2.5.2` and
+> `scipy==1.18.0` both declare `Requires-Python >=3.12`, and the model bundles were built
+> on 3.12.3. Ubuntu 22.04 ships Python 3.10, so `pip install -r requirements.txt` cannot
+> resolve there. If you are stuck on 22.04 you would need a newer interpreter from
+> deadsnakes and a venv built against it; picking 24.04 avoids the whole problem.
 
 ---
 
 ## 0. Provision the EC2 instance
 
 1. **Launch instance** (EC2 → Launch instances):
-   - AMI: **Ubuntu Server 24.04 LTS** (or 22.04).
-   - Type: **t3.small** or larger. *The rebound backend loads torch — t2/t3.micro's 1 GB
-     RAM is not enough; use at least 2 GB.* If you stay on a micro, add swap (below).
+   - AMI: **Ubuntu Server 24.04 LTS** — it ships Python 3.12, which the pinned stack
+     requires. Do not use 22.04 (Python 3.10); see the note above.
+   - Type: **t3.small** (2 GB) or larger. Measured footprint of the backend with two
+     workers: **~690 MB** total, each worker ~430 MB. Workers do *not* share model memory —
+     `preload_app` is off (it deadlocks torch across a fork; see Troubleshooting), so every
+     worker loads its own copy. t2/t3.micro's 1 GB will OOM; if you stay on one, add swap
+     (below) and set `WEB_CONCURRENCY=1`.
+   - **Note the worker count scales with vCPU.** `gunicorn.conf.py` defaults to
+     `min(4, cpu_count)`, so a 4-vCPU box spawns 4 workers ≈ 1.4 GB. Pin it in the unit
+     file (`Environment="WEB_CONCURRENCY=2"`) if you size up, or the memory math changes
+     under you.
    - Key pair: create/download one (e.g. `postup.pem`) so you can SSH in.
    - Storage: 16 GB gp3 is plenty.
 2. **Security group** — inbound rules:
@@ -41,6 +55,26 @@ Assumes Ubuntu 22.04/24.04 on EC2 and a shell user named `ubuntu`.
    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
    ```
 
+### Networking / VPC — nothing to build
+Every instance lives in a VPC, but you do **not** need to create one. Each region has a
+**default VPC** already wired with a public subnet per AZ, an internet gateway, and a route
+sending `0.0.0.0/0` to it. Launch without touching the networking panel and you land there,
+which is what this runbook assumes.
+
+That is the right shape here: one public instance, nginx terminating TLS, gunicorn bound to
+`127.0.0.1`. No private subnet, no load balancer, no database — so **no NAT gateway**, which
+is the thing worth checking for, since it bills ~$32/mo whether or not traffic flows. The
+security group is the real access control.
+
+Most VPC objects are free. These are not:
+
+| | cost | needed here |
+|---|---|---|
+| NAT gateway | ~$32/mo + data processing | **no** |
+| Interface VPC endpoint | ~$7/mo each | no |
+| Public IPv4 address | ~$3.60/mo **each, attached or not** (since Feb 2024) | one, unavoidable |
+| Subnets, IGW, route tables, security groups | free | — |
+
 ## 1. Point DNS at the instance
 
 At your domain registrar for **postuptothe.net**, create records pointing at the Elastic IP:
@@ -50,15 +84,23 @@ At your domain registrar for **postuptothe.net**, create records pointing at the
 | A    | @    | `<ELASTIC_IP>` |
 | A    | www  | `<ELASTIC_IP>` |
 
+> **Create BOTH records, and before step 7.** Certbot validates every `-d` over HTTP, and
+> step 7 passes `-d postuptothe.net -d www.postuptothe.net`. If `www` does not resolve, the
+> **entire** certbot run fails and you get no certificate at all — not merely a cert missing
+> the `www` name. `deploy/nginx.conf:8` also lists both in `server_name`. If you genuinely
+> do not want the subdomain, drop it from the certbot command *and* from `server_name`.
+
 Verify before continuing (propagation can take a few minutes):
 ```bash
 dig +short postuptothe.net        # should print your Elastic IP
+dig +short www.postuptothe.net    # must print it too, or certbot will fail
 ```
 
 ## 2. Install packages
 ```bash
 sudo apt update
 sudo apt install -y nginx python3-venv python3-pip git rsync
+python3 --version                 # must be 3.12 or newer — see the note at the top
 ```
 
 ## 3. Get the code onto the box
@@ -80,8 +122,12 @@ sudo chown -R www-data:www-data /var/www/site
 ```bash
 sudo rsync -a rebound-app/ /opt/rebound-app/
 cd /opt/rebound-app
+sudo mkdir -p /opt/rebound-app/models      # belt-and-braces; models/README.md keeps it in git
 python3 -m venv venv
-# CPU wheel first, or pip drags in ~2.5 GB of CUDA for an 800k-parameter model.
+# ORDER MATTERS. requirements.txt pins torch==2.13.0+cpu, and that "+cpu" build does not
+# exist on PyPI — installing it first from the CPU index satisfies the pin. Reverse these
+# two lines and the requirements install fails to resolve torch. Installing torch from
+# PyPI instead pulls ~2.5 GB of CUDA onto a host that will never have a GPU.
 ./venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
 ./venv/bin/pip install -r requirements.txt
 # The feature code. Unpickling the bundles imports this, so it is a hard dependency.
@@ -102,6 +148,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now rebound
 systemctl status rebound          # active (running)
 curl -s localhost:8000/healthz    # reports WHICH model is live
+
+# Smoke-test a real prediction before wiring up nginx, so a failure here is unambiguous.
+# Expect HTTP 200 and ten probabilities summing to 1.
+curl -s -X POST localhost:8000/predict -H 'Content-Type: application/json' \
+     --data @/opt/rebound-app/sample.json | head -c 200
 ```
 `/healthz` returns the deployed bundle's own provenance — build commit, corpus, fit,
 test score — which is the only way to identify weights that never enter git:
@@ -215,6 +266,25 @@ curl -s localhost:8000/healthz    # the commit here should match the package you
 `SourceOfTruth.pkl` from that repo is **not** deployable here — it needs rim-time and
 velocity features that do not exist when a visitor is placing dots, and `serve.predict`
 refuses it.
+
+## Tearing down (or rebuilding from scratch)
+Releasing an Elastic IP returns it to the regional pool, where AWS can reassign it to
+another account — but **your DNS keeps pointing at it**. Until you repoint the A records,
+traffic for the domain goes to whoever holds that address next. HTTPS visitors get a
+certificate mismatch rather than a silent redirect, since the new holder cannot obtain a
+cert for your name without controlling DNS, but a dangling A record is still worth closing.
+
+Order that avoids a gap:
+
+1. Stand up the new instance and allocate + associate its Elastic IP.
+2. Update **both** A records to the new IP; confirm with `dig +short`.
+3. Only then release the old Elastic IP and terminate the old instance.
+
+Doing it the other way round — as in a teardown-first rebuild — leaves the domain pointing
+at an address you no longer control for as long as the rebuild takes.
+
+Terminating an instance releases its *automatic* public IP but **not** an associated Elastic
+IP: that must be released explicitly or it keeps billing (~$3.60/mo) while unattached.
 
 ## Troubleshooting
 - `journalctl -u rebound -e` — backend logs (model load warnings, prediction errors).
