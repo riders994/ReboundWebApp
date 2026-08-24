@@ -15,6 +15,24 @@ Assumes **Ubuntu 24.04** on EC2 and a shell user named `ubuntu`.
 > resolve there. If you are stuck on 22.04 you would need a newer interpreter from
 > deadsnakes and a venv built against it; picking 24.04 avoids the whole problem.
 
+## Before you start
+
+Five things, two of which have to be prepared off this box:
+
+- [ ] **AWS account** and an EC2 key pair you can SSH with.
+- [ ] **The domain's DNS in Route 53** — it already is; nameservers are `ns-*.awsdns-*`.
+- [ ] **Both model bundles in hand**, built in the ReboundingPrediction repo:
+      `python -m rebounding.cli train` and `train-movement`. The service **refuses to start**
+      without `FinalModel.pkl`, so get these before step 5, not after.
+- [ ] **The commit SHA those bundles were built at.** Step 5 pins the `rebounding` package to
+      it. `python -m rebounding.cli describe --model FinalModel.pkl` will tell you, and
+      `/healthz` reports it once deployed.
+- [ ] **The retrain work merged into `primary`** — or be ready to check out the branch on the
+      box. See step 3.
+
+Rough timings: apt and pip are a few minutes each (torch is the slow one, ~200 MB), DNS
+propagation is minutes at TTL 300, and certbot is seconds once DNS resolves.
+
 ---
 
 ## 0. Provision the EC2 instance
@@ -77,37 +95,86 @@ Most VPC objects are free. These are not:
 
 ## 1. Point DNS at the instance
 
-At your domain registrar for **postuptothe.net**, create records pointing at the Elastic IP:
+**DNS for this domain lives in Route 53**, not at the registrar — the zone's nameservers are
+`ns-*.awsdns-*`. Check with `dig +short NS postuptothe.net` if that ever changes. Edits go in
+**Route 53 → Hosted zones → postuptothe.net → Create record**.
 
-| Type | Name | Value          |
-|------|------|----------------|
-| A    | @    | `<ELASTIC_IP>` |
-| A    | www  | `<ELASTIC_IP>` |
+An **A record** maps a hostname to an IPv4 address. The catch that bites people: DNS treats
+every hostname as a *separate name*, so `postuptothe.net` and `www.postuptothe.net` are two
+different things and having one says nothing about the other. The bare domain (the "apex" or
+"root") is written `@`; the other is written `www`. Both point at the same server — you are
+not running two sites, you are telling DNS that two names lead to one place.
 
-> **Create BOTH records, and before step 7.** Certbot validates every `-d` over HTTP, and
-> step 7 passes `-d postuptothe.net -d www.postuptothe.net`. If `www` does not resolve, the
-> **entire** certbot run fails and you get no certificate at all — not merely a cert missing
-> the `www` name. `deploy/nginx.conf:8` also lists both in `server_name`. If you genuinely
-> do not want the subdomain, drop it from the certbot command *and* from `server_name`.
+| Type | Name | Value          | Resolves |
+|------|------|----------------|----------|
+| A    | `@`  | `<ELASTIC_IP>` | `postuptothe.net` |
+| A    | `www`| `<ELASTIC_IP>` | `www.postuptothe.net` |
+
+Set **TTL 300** while you are changing things, so a mistake corrects in five minutes instead
+of an hour. Raise it once the site is stable.
+
+> **Create BOTH records, and before step 7.** Certbot proves you control each name by
+> fetching a file over HTTP from it, and step 7 requests one certificate covering both
+> (`-d postuptothe.net -d www.postuptothe.net`). If `www` does not resolve, that
+> authorization fails and the **entire run aborts** — you get no certificate at all, not
+> even for the apex. It reads like a certbot problem when it is a DNS problem.
+> `deploy/nginx.conf:8` lists both in `server_name` too. If you genuinely do not want the
+> subdomain, drop it from the certbot command *and* from `server_name`.
+
+**Rebuilding after a teardown?** The apex record survives an instance being destroyed, so it
+will still be pointing at whatever address you released. Update it — do not assume a missing
+site means a missing record. See "Tearing down (or rebuilding from scratch)".
 
 Verify before continuing (propagation can take a few minutes):
 ```bash
-dig +short postuptothe.net        # should print your Elastic IP
+dig +short postuptothe.net        # must print the NEW Elastic IP
 dig +short www.postuptothe.net    # must print it too, or certbot will fail
 ```
+`NXDOMAIN` from the second means the name does not exist at all — a missing record, not a
+misconfigured one.
+
+> **Optional, and worth it:** make `www` a **CNAME** to `postuptothe.net` instead of a second
+> A record. Then the IP lives in exactly one place and the next IP change is a single edit.
+> The apex must stay an A record either way — standard DNS does not allow a CNAME there.
+
+| Type  | Name  | Value              |
+|-------|-------|--------------------|
+| A     | `@`   | `<ELASTIC_IP>`     |
+| CNAME | `www` | `postuptothe.net`  |
 
 ## 2. Install packages
 ```bash
 sudo apt update
-sudo apt install -y nginx python3-venv python3-pip git rsync
+sudo apt install -y nginx python3-venv python3-pip git rsync python3-markdown
 python3 --version                 # must be 3.12 or newer — see the note at the top
 ```
+`python3-markdown` is needed by `scripts/projects.py render` in step 4 — it renders project
+READMEs into detail pages, and without it that step dies with `ModuleNotFoundError`.
+
+> **Install it via apt, not pip.** On 24.04 the system Python is *externally managed*
+> (PEP 668), so `pip install markdown` outside a venv fails with
+> `error: externally-managed-environment`. The apt package sidesteps that. If you would
+> rather use pip, build a venv for the scripts and run them from it.
+
+`scripts/requirements.txt` also lists `boto3`, but it is imported lazily and only for
+S3-backed photo galleries. Those are disabled here, so you do not need it.
 
 ## 3. Get the code onto the box
 ```bash
 git clone https://github.com/riders994/ReboundWebApp.git ~/ReboundWebApp
 cd ~/ReboundWebApp
 ```
+
+> **Check what you just cloned.** `git clone` gives you the default branch (`primary`). The
+> retrained-model backend, the position picker and this runbook all have to be *on* that
+> branch or you will deploy the 2017 app — which tries to load `posnn.h5`/`msd.pkl`, files
+> that no longer exist, and fails. Either merge the work into `primary` first, or clone the
+> branch explicitly:
+> ```bash
+> git -C ~/ReboundWebApp log --oneline -1     # expect the retrain work, not the old app
+> # if not:
+> git -C ~/ReboundWebApp checkout rebound-retrain-and-position-picker
+> ```
 
 ## 4. Static site
 ```bash
@@ -121,8 +188,11 @@ sudo chown -R www-data:www-data /var/www/site
 ## 5. Backend (gunicorn + systemd)
 ```bash
 sudo rsync -a rebound-app/ /opt/rebound-app/
+# Own it as `ubuntu`, the user the service runs as. Without this the venv cannot be created
+# and the scp of the model bundles lands on a root-owned directory and is refused.
+sudo chown -R ubuntu:ubuntu /opt/rebound-app
 cd /opt/rebound-app
-sudo mkdir -p /opt/rebound-app/models      # belt-and-braces; models/README.md keeps it in git
+mkdir -p models                            # tracked via models/README.md, but harmless
 python3 -m venv venv
 # ORDER MATTERS. requirements.txt pins torch==2.13.0+cpu, and that "+cpu" build does not
 # exist on PyPI — installing it first from the CPU index satisfies the pin. Reverse these
