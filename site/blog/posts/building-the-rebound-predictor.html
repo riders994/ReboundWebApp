@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Building the NBA Rebound Predictor — Rohan Vahalia</title>
-  <meta name="description" content="How the rebound predictor works: position model, engineered features, and a random forest.">
+  <meta name="description" content="How the rebound predictor works: a movement model, engineered features, and a grouped-softmax ranker.">
   <link rel="stylesheet" href="../../assets/css/main.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✍️</text></svg>">
 </head>
@@ -40,20 +40,69 @@
 
     <h2>Two models, in sequence</h2>
     <p>
-      There are two learning steps. First a small neural network takes the pre-shot positions and
-      predicts each player's <em>post-shot</em> position — rebounding is about movement, not just where
-      you start. Then I engineer a handful of features on top of those positions and feed them to a
-      random forest that outputs a rebound probability per player, normalized to sum to one.
+      There are two learning steps. First a <strong>movement model</strong> takes the pre-shot
+      positions and samples where all ten players end up when the ball comes off the rim —
+      rebounding is about movement, not just where you start. Then those positions, plus a stack of
+      engineered features, go to a <strong>ranker</strong> that outputs a rebound probability per
+      player.
+    </p>
+    <p>
+      The ranker scores the ten players together rather than one at a time. That sounds like a
+      detail and isn't: exactly one of them gets the rebound, so it's a ranking problem over a group
+      of ten, not ten independent yes/no questions. Training it under a grouped softmax means the
+      probabilities come out as one distribution that already sums to one.
+    </p>
+    <p>
+      The movement model predicts a <em>distribution over whole scenes</em> rather than one position
+      per player, which took me a while to appreciate as the right shape for the problem. A big man
+      might crash the glass or might leak out in transition. Those are two futures. Predicting one
+      number per player forces the model to answer "somewhere in between", which is a place he never
+      actually stands. Sampling complete scenes lets it commit to one story at a time — so the demo
+      draws a different plausible outcome each time you re-run the same play.
+    </p>
+
+    <h2>What the 2017 version did</h2>
+    <p>
+      The original was a small <strong>Keras</strong> network predicting one post-shot point per
+      player, eight hand-built features, and a <strong>scikit-learn random forest</strong> scoring
+      each player on his own. Because nothing told that forest only one player could win, its ten
+      outputs didn't sum to anything in particular, and the app divided them by their total to make
+      a distribution out of them. That worked, in the sense that it produced numbers.
+    </p>
+    <p>
+      Rebuilding it in 2026 replaced both stages, and the two changes that mattered most were the
+      ones above: score the group jointly, and sample scenes instead of averaging them. The third
+      was organisational — every feature definition moved into the modelling repo, so the web app no
+      longer recomputes its own copy at request time. That duplication is the kind of thing that
+      rots quietly, and by the time I came back to it, it had.
     </p>
 
     <h2>The features that matter</h2>
-    <p>The engineered features try to capture rebounding intuition:</p>
+    <p>Twenty-seven features per player now, still trying to capture rebounding intuition:</p>
     <ul>
-      <li><strong>Distance and angle to the hoop</strong> — position relative to the rim (fixed at roughly <code>(41.65, 25)</code> in court coordinates).</li>
-      <li><strong>Cosine similarity to the shooter's angle</strong> — are you on the same line to the basket as the shot?</li>
-      <li><strong>A "box-out" count</strong> — a single k-means-style assignment step estimates how many opponents each player is boxing out.</li>
-      <li><strong>Movement vector</strong> — how far and in which direction the position model expects the player to move, signed by whether they get closer to the rim.</li>
+      <li><strong>Distance and angle to the hoop</strong> — position relative to the rim, at <code>(41.75, 25)</code> in court coordinates.</li>
+      <li><strong>Shot context</strong> — how far out the shot was taken, each player's bearing relative to it, and an estimate of how long the ball is in the air.</li>
+      <li><strong>Traffic</strong> — distance to the nearest opponent, and how many bodies are inside six and ten feet.</li>
+      <li><strong>Box-outs</strong> — who is screening whom off the glass, counted in both directions.</li>
+      <li><strong>Relative standing</strong> — distance to the rim compared against the best-placed player, the nearest teammate, and the group average. Being twelve feet out means nothing until you know where the other nine are.</li>
+      <li><strong>Identity</strong> — offense or defense, shooter or not, and listed position.</li>
     </ul>
+
+    <h2>Does it work?</h2>
+    <p>
+      It picks the actual rebounder 29.7% of the time on held-out shots, and has him in its top three
+      66.8% of the time. With ten players on the floor, guessing gets you 10%. I've made my peace
+      with that ceiling: a tip-out or a carom off someone's shoulder isn't in the pre-shot positions,
+      and no model is going to find it there.
+    </p>
+    <p>
+      The single most surprising thing I found rebuilding this: telling the model who's a guard and
+      who's a centre is worth 2.8 points of top-1. Strip the positions out and the same model drops
+      to 26.9%. That's why the demo makes you pick positions instead of just dropping dots — the
+      earlier version defaulted everyone to "forward" and quietly gave up those points. Worth saying
+      that 29.7% was measured on real lineups, though: if you sketch five centres, you're outside
+      anything the training data has seen.
+    </p>
 
     <h2>The front-end</h2>
     <p>
@@ -69,7 +118,7 @@
     <div class="wrap footer__inner">
       <span class="muted">© <span data-year>2026</span> Rohan Vahalia</span>
       <ul class="footer__social">
-        <li><a href="mailto:r.vahalia@gmail.com">Email</a></li>
+        <li><a href="mailto:ruvwebsite@gmail.com">Email</a></li>
         <li><a href="https://github.com/riders994">GitHub</a></li>
       </ul>
     </div>

@@ -4,25 +4,105 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NBA Rebound Predictor — Rohan Vahalia</title>
-  <meta name="description" content="Interactive tool: a neural net + random forest predict who grabs the rebound.">
+  <meta name="description" content="Interactive tool: a movement model and a LightGBM ranker predict who grabs the rebound.">
   <link rel="stylesheet" href="../assets/css/main.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏀</text></svg>">
   <style>
-    /* Demo-specific layout, scoped to this page */
-    .demo { display: grid; grid-template-columns: 500px 1fr; gap: 2rem; align-items: start; margin: 1.5rem 0 1rem; }
-    .demo__panel { max-width: 500px; }
-    #court-container { width: 500px; max-width: 100%; }
-    #court-container svg { max-width: 100%; }
+    /* Demo-specific layout, scoped to this page (the only <style> block in the site --
+       .demo/.picker/.court are used nowhere else, so they don't belong in main.css). */
+
+    /* Court colours. The court used to hardcode these inline, so it was the one component
+       that ignored dark mode. */
+    :root {
+      --court-bg: #2f473e; --court-player: #ffffff; --court-line: #111111;
+      --court-shooter: #ffc93c; --court-ghost: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --court-bg: #22332c; --court-player: #e8ece9; --court-line: #050706; }
+    }
+
+    /* minmax(0,...) not a fixed 500px: the SVG is fluid now, and a fixed track lets it
+       blow the grid out rather than shrink. */
+    .demo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; margin: 1.5rem 0 1rem; }
+    .demo__stage { display: grid; grid-template-columns: minmax(0, 500px) auto; gap: 1.4rem; align-items: start; }
+    .demo__panel { min-width: 0; }
+    #court-container { width: 100%; max-width: 500px; }
+    .court {
+      display: block; width: 100%; height: auto;
+      background-color: var(--court-bg); background-repeat: no-repeat;
+      border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.45);
+      user-select: none; touch-action: manipulation;
+    }
     #banner {
       font-family: var(--mono); font-size: .9rem; color: var(--fg);
       background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px;
       padding: .6rem .8rem; margin: .8rem 0; min-height: 1.2rem;
     }
     .demo__controls { display: flex; gap: .8rem; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    /* --- players ------------------------------------------------------------- */
+    /* touch-action goes on the draggable pieces ONLY. On the court background it would
+       trap the page: a finger landing on the court could no longer scroll. */
+    .court__player { cursor: grab; touch-action: none; }
+    .court__player circle.court__dot { fill: var(--court-player); stroke: var(--court-line); stroke-width: 3; }
+    .court__player.is-defense circle.court__dot { fill: none; stroke-width: 4; }
+    .court__player.is-shooter circle.court__dot { stroke: var(--court-shooter); stroke-width: 5; }
+    .court__player.is-best circle.court__dot { stroke: #6ee7ff; }
+    .court__player.is-removing { opacity: .45; }
+    .court__player.is-removing circle.court__dot { stroke: #e5484d; }
+    .court__label {
+      font-family: var(--mono); font-size: 13px; font-weight: 700;
+      text-anchor: middle; pointer-events: none; fill: var(--court-line);
+    }
+    .court__player.is-defense .court__label { fill: var(--court-player); }
+    .court__remove circle { fill: #e5484d; }
+    .court__remove text { fill: #fff; font-size: 13px; text-anchor: middle; }
+    .court__player:focus-visible { outline: none; }
+    .court__player:focus-visible circle.court__dot { stroke: var(--accent); stroke-width: 5; }
+    .court--picking-shooter .court__player.is-offense circle.court__dot { stroke: var(--court-shooter); }
+    .court__ghost { opacity: .65; pointer-events: none; }
+    .court__ghost circle { fill: var(--court-ghost); stroke: var(--court-line); stroke-width: 3; }
+    .court__ghost.is-defense circle { fill: none; }
+    .court__ghost text { font-family: var(--mono); font-size: 13px; font-weight: 700; text-anchor: middle; }
+
+    /* --- picker -------------------------------------------------------------- */
+    .picker { display: flex; flex-direction: column; gap: .8rem; min-width: 160px; }
+    .picker__count { font-family: var(--mono); font-size: .8rem; color: var(--fg-faint); margin: 0; }
+    .picker__bubbles { display: flex; flex-wrap: wrap; gap: .5rem; list-style: none; margin: 0; padding: 0; }
+    .bubble {
+      min-width: 44px; min-height: 44px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--bg-card); color: var(--fg);
+      font-family: var(--mono); font-size: .85rem; font-weight: 600;
+      cursor: grab; touch-action: none; user-select: none;
+      transition: border-color .15s ease, color .15s ease;
+    }
+    .bubble:hover { border-color: var(--accent); color: var(--accent); }
+    .bubble.is-dragging { opacity: .4; cursor: grabbing; }
+    .bubble[aria-disabled="true"] { opacity: .4; cursor: default; }
+    .picker__shooter-chips, .picker__toggle { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .picker__fill {
+      align-self: flex-start; background: none; border: 0; color: var(--accent);
+      cursor: pointer; font-size: .85rem; text-decoration: underline; padding: .2rem 0;
+    }
+    .picker__hint { font-size: .8rem; color: var(--fg-faint); margin: 0; }
+    .picker__results-list { list-style: none; margin: .3rem 0 0; padding: 0; font-family: var(--mono); font-size: .78rem; }
+    .picker__results-list li { padding: .15rem 0; color: var(--fg-soft); }
+    .picker__results-list li:first-child { color: var(--fg); font-weight: 700; }
+
     .instructions { list-style: none; padding: 0; margin: 0; }
     .instructions li { padding: .4rem 0; color: var(--fg-soft); border-bottom: 1px solid var(--border); font-size: .95rem; }
     .instructions li::before { content: '▸ '; color: var(--accent); }
-    @media (max-width: 920px) { .demo { grid-template-columns: 1fr; } }
+
+    .bubble:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    @media (max-width: 920px) {
+      .demo__stage { grid-template-columns: minmax(0, 1fr); }
+      .picker { min-width: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bubble, .chip, .btn { transition: none; }
+    }
   </style>
 </head>
 <body>
@@ -48,30 +128,64 @@
       likely they are to grab the rebound.
     </p>
     <ul class="tags" style="margin-top:1rem">
-      <li class="tag">Python</li><li class="tag">Flask</li><li class="tag">Keras</li>
-      <li class="tag">scikit-learn</li><li class="tag">D3.js</li>
+      <li class="tag">Python</li><li class="tag">Flask</li><li class="tag">PyTorch</li>
+      <li class="tag">LightGBM</li><li class="tag">D3.js</li>
     </ul>
   </header>
 
   <!-- live demo -->
   <section class="wrap">
     <div class="demo">
-      <div class="demo__panel">
-        <div id="court-container"></div>
-        <div id="banner">Left-click offense · right-click defense · shift-click the shooter</div>
-        <div class="demo__controls">
-          <button class="btn btn--primary" id="run">Run</button>
-          <button class="btn btn--ghost" id="clear">Clear</button>
+      <div class="demo__stage">
+        <div class="demo__panel">
+          <div id="court-container"></div>
+          <div id="banner" role="status" aria-live="polite">Click the court to place each player, or drag positions from the panel</div>
+          <div class="demo__controls">
+            <button class="btn btn--primary" id="run" aria-describedby="banner" disabled>Run</button>
+            <button class="btn btn--ghost" id="clear" disabled>Clear</button>
+          </div>
         </div>
+
+        <aside class="picker">
+          <div class="picker__toggle filter-group" role="group" aria-label="Team">
+            <button type="button" class="chip is-active" data-side="offense" aria-pressed="true">Offense</button>
+            <button type="button" class="chip" data-side="defense" aria-pressed="false">Defense</button>
+          </div>
+
+          <p class="picker__count">Offense 0/5 · Defense 0/5</p>
+
+          <ul class="picker__bubbles">
+            <li><button type="button" class="bubble" data-pos="PG">PG</button></li>
+            <li><button type="button" class="bubble" data-pos="SG">SG</button></li>
+            <li><button type="button" class="bubble" data-pos="SF">SF</button></li>
+            <li><button type="button" class="bubble" data-pos="PF">PF</button></li>
+            <li><button type="button" class="bubble" data-pos="C">C</button></li>
+          </ul>
+
+          <div class="picker__shooter" hidden>
+            <span class="filter-group__label">Shooter</span>
+            <div class="picker__shooter-chips"></div>
+          </div>
+
+          <button type="button" class="picker__fill">Fill default lineup</button>
+          <p class="picker__hint">Click the court to drop offense PG, or drag any bubble.</p>
+
+          <div class="picker__results" hidden>
+            <span class="filter-group__label">Most likely</span>
+            <ol class="picker__results-list"></ol>
+          </div>
+        </aside>
       </div>
-      <div>
+
+      <div class="demo__how">
         <h3>How to use it</h3>
         <ul class="instructions">
-          <li>Left-click to drop an offensive player (up to 5)</li>
-          <li>Right-click to drop a defender (up to 5)</li>
-          <li>Shift-click, or the 5th offensive click, marks the shooter (gold ring)</li>
-          <li>Hit <strong>Run</strong> — players animate to predicted positions</li>
-          <li>Color runs blue → red by rebound likelihood; hover a player for its probability</li>
+          <li>Click the court to drop players in order — PG→C for offense, then the same for defense</li>
+          <li>Or pick a side and drag position bubbles onto the court — 5 each. Repeats are fine.</li>
+          <li><strong>Fill default lineup</strong> places all ten at once if you'd rather start from a shape</li>
+          <li>Drag a player to move them; drag one off the court to remove them</li>
+          <li>Choose the shooter when prompted, then hit <strong>Run</strong></li>
+          <li>Color runs blue → red by rebound likelihood; tap a player, or read the ranked list</li>
         </ul>
         <p class="todo">
           The demo calls <code>/api/rebound/predict</code>. Running locally? Start the Flask app and set
@@ -85,20 +199,71 @@
   <article class="wrap section prose">
     <h2>How it works</h2>
     <p>
-      The predictor runs in two learning stages. A small <strong>neural network</strong> (Keras) takes the
-      pre-shot positions of all ten players and predicts each player's <em>post-shot</em> position —
-      rebounding is about movement toward the ball, not just where you start. Those predicted positions
-      feed a feature step, and a <strong>random forest</strong> (scikit-learn) turns the features into a
-      rebound probability for each player, normalized across the ten to sum to one.
+      Two models run in sequence. A <strong>movement model</strong> (PyTorch) takes the pre-shot
+      positions of all ten players and samples where they end up when the ball comes off the rim —
+      rebounding is about movement toward the ball, not just where you start. A
+      <strong>ranker</strong> (LightGBM) then scores all ten players together and returns the
+      probability that each one comes down with it.
+    </p>
+    <p>
+      The ranker scores the ten players <em>jointly</em> rather than one at a time, under a grouped
+      softmax — the model is told from the outset that exactly one player gets the rebound, so the
+      probabilities are a single distribution over the group and already sum to one.
+    </p>
+    <p>
+      The movement model predicts a <em>distribution over whole scenes</em>, not one position per
+      player. A big man might crash the glass or might leak out, and those are two different futures,
+      not one average future somewhere in between. Each request samples a dozen complete scenes; the
+      demo animates one of them, so re-running the same play gives you a slightly different — and
+      equally plausible — result each time.
     </p>
 
     <h3>Engineered features</h3>
+    <p>
+      Twenty-seven features per player, computed by the pipeline rather than the web app, so the
+      served features cannot drift from the trained ones. They fall into a few families:
+    </p>
     <ul>
-      <li><strong>Distance &amp; angle to the hoop</strong> — geometry relative to the rim.</li>
-      <li><strong>Cosine similarity to the shooter's angle</strong> — are you on the shot's line to the basket?</li>
-      <li><strong>Box-out count</strong> — a single k-means-style assignment estimates how many opponents each player screens off.</li>
-      <li><strong>Movement vector</strong> — magnitude and direction the position model expects, signed by whether the player gets closer to the rim.</li>
+      <li><strong>Geometry to the rim</strong> — distance and angle from the basket.</li>
+      <li><strong>Shot context</strong> — how far the shot was taken from, the player's bearing relative to it, and an estimate of the ball's flight time.</li>
+      <li><strong>Traffic</strong> — distance to the nearest opponent and nearest player of any kind, and how many bodies are within six and ten feet.</li>
+      <li><strong>Box-outs</strong> — who is screening whom off the glass, in both directions.</li>
+      <li><strong>Relative standing</strong> — a player's distance to the rim measured against the best-placed player, his nearest teammate, and the group mean. Rebounding is a competition, so position only means something relative to the other nine.</li>
+      <li><strong>Identity</strong> — offense or defense, shooter or not, and listed position.</li>
     </ul>
+
+    <h3>Rebuilt in 2026</h3>
+    <p>
+      The original 2017 version was a <strong>Keras</strong> network that predicted a single post-shot
+      point per player, feeding eight hand-built features into a <strong>scikit-learn random
+      forest</strong> that scored each player independently; the ten scores were then divided by their
+      sum to make them look like a distribution. Both stages have been replaced. Scoring the players
+      jointly removed the need for that fudge, and sampling whole scenes removed an averaging artifact
+      that parked players at the midpoint of futures they never actually took.
+    </p>
+    <p>
+      The rewrite also moved every feature definition into the modelling repo. The 2017 web app
+      recomputed its own features at request time, which is exactly the kind of duplication that
+      silently rots — and had, in small ways, by the time it was rebuilt.
+    </p>
+
+    <h3>How well does it do?</h3>
+    <p>
+      On 5,756 held-out shots, it identifies the actual rebounder <strong>29.7%</strong> of the time,
+      with the right player in its top three <strong>66.8%</strong> of the time. Ten players on the
+      floor makes 10% the number to beat, so it is about three times better than guessing — which is
+      about right for a genuinely noisy event. A tip-out, a lucky carom or a bounce off a shoulder is
+      not predictable from where everyone stood a second earlier, and no amount of model is going to
+      recover it.
+    </p>
+    <p>
+      Telling it who is a guard and who is a centre is worth a surprising amount: without positions
+      the same model scores 26.9%, so that one field is worth <strong>2.8 points</strong> of top-1.
+      That is why the court asks you to pick positions rather than just placing dots. One caveat on
+      the number — it was measured on real lineups, and a sketched five-guard lineup is not something
+      the training data contains, so treat it as the ceiling rather than a promise. The movement
+      model places players within 4.9 feet on average, against a mean travel of 7.5 feet.
+    </p>
 
     <h3>Front-end</h3>
     <p>
@@ -118,7 +283,7 @@
     <div class="wrap footer__inner">
       <span class="muted">© <span data-year>2026</span> Rohan Vahalia</span>
       <ul class="footer__social">
-        <li><a href="mailto:r.vahalia@gmail.com">Email</a></li>
+        <li><a href="mailto:ruvwebsite@gmail.com">Email</a></li>
         <li><a href="https://github.com/riders994">GitHub</a></li>
       </ul>
     </div>

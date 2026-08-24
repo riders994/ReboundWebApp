@@ -79,20 +79,88 @@ def render_markdown(text):
     )
 
 
+README_NAMES = ["README.md", "readme.md", "README.markdown"]
+
+# Guessed in this order before spending an API call. Measured against this account's
+# repos (Aug 2026): 9 default to "primary", 2 to "master", and none to "main" — so the
+# old ["main", "master"] order missed every time and burned three requests doing it.
+# "main" stays last because it is GitHub's default for new repos, so a repo created
+# tomorrow will still resolve without an API call.
+BRANCH_GUESSES = ["primary", "master", "main"]
+
+
+def fetch_default_branch(owner, repo):
+    """The repo's actual default branch, or None. One unauthenticated API call."""
+    url = f"https://api.github.com/repos/{owner}/{repo}"
+    headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/vnd.github+json"}
+    try:
+        with urlopen(Request(url, headers=headers), timeout=15) as r:
+            return json.load(r).get("default_branch")
+    except (HTTPError, URLError, TimeoutError, ValueError, KeyError, TypeError, OSError):
+        return None
+
+
+def _try_branches(owner, repo, branches):
+    """Probe branch x README-name combinations on raw.githubusercontent.com.
+
+    Returns (text, base, saw_network_error). A 404 means "not here"; a timeout or DNS
+    failure means "we don't know", and the two must not be conflated -- one is a missing
+    README, the other is a bad afternoon on the network.
+    """
+    saw_network_error = False
+    for b in branches:
+        if not b:
+            continue
+        base = f"https://raw.githubusercontent.com/{owner}/{repo}/{b}/"
+        for name in README_NAMES:
+            try:
+                with urlopen(Request(base + name, headers={"User-Agent": "Mozilla/5.0"}), timeout=15) as r:
+                    return r.read().decode("utf-8", "replace"), base, saw_network_error
+            except HTTPError as e:
+                if e.code != 404:
+                    saw_network_error = True
+            except (URLError, TimeoutError, OSError):
+                saw_network_error = True
+    return None, None, saw_network_error
+
+
 def fetch_readme(owner, repo, branch=None):
     """Fetch a repo's README from raw.githubusercontent.com.
 
-    Returns (text, raw_base_url) or (None, None). raw_base_url is the directory URL of the
-    README on the resolved branch, so relative image paths can be rewritten to absolute.
+    Returns (text, raw_base_url, status). raw_base_url is the directory URL of the README
+    on the resolved branch, so relative image paths can be rewritten to absolute.
+
+    status is one of:
+      "ok"      -- README found
+      "missing" -- the repo has no README on its real default branch
+      "error"   -- something transient (network, rate limit); do NOT treat as missing
+
+    Branch resolution guesses BRANCH_GUESSES first, because raw.githubusercontent.com is
+    a separate host and does not count against the API rate limit. Only if every guess
+    misses do we spend one API call to ask GitHub what the default branch actually is,
+    then retry -- so an unusual branch ("develop", "trunk") still resolves, it just costs
+    one call. That lazy fallback is what keeps a render inside the 60/hour unauthenticated
+    budget, which also pays for one commit-date call per project.
+
+    Distinguishing "missing" from "error" is the point of the status. The pages are
+    committed and deployed by rsync, so a transient failure silently rewritten as "this
+    project has no README" would ship a confident lie.
     """
-    branches = [branch] if branch else ["main", "master"]
-    names = ["README.md", "readme.md", "README.markdown"]
-    for b in branches:
-        for name in names:
-            base = f"https://raw.githubusercontent.com/{owner}/{repo}/{b}/"
-            try:
-                with urlopen(Request(base + name, headers={"User-Agent": "Mozilla/5.0"}), timeout=15) as r:
-                    return r.read().decode("utf-8", "replace"), base
-            except (HTTPError, URLError, TimeoutError, OSError):
-                continue
-    return None, None
+    tried = [branch] if branch else list(BRANCH_GUESSES)
+    text, base, net_error = _try_branches(owner, repo, tried)
+    if text is not None:
+        return text, base, "ok"
+
+    # An explicit readme_branch is a deliberate choice; don't second-guess it.
+    if not branch:
+        default = fetch_default_branch(owner, repo)
+        if default and default not in tried:
+            text, base, net_error_2 = _try_branches(owner, repo, [default])
+            net_error = net_error or net_error_2
+            if text is not None:
+                return text, base, "ok"
+        elif default is None:
+            # Couldn't even ask -- can't claim the README is missing.
+            net_error = True
+
+    return None, None, ("error" if net_error else "missing")

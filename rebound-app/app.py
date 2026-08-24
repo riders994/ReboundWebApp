@@ -1,221 +1,215 @@
+"""The rebound app, on Python 3.
+
+A rewrite of the 2017 `webapp.py` rather than a port of it. The feature code is gone --
+`rebounding.serve` computes every feature now, so the app and the model cannot disagree
+about what `pre_box` means. What is left is HTTP: parse a payload, convert coordinates,
+call the model, convert back.
+
+Changes worth knowing about, beyond Python 3 and current Flask:
+
+* **`features()` and `boxgen()` are deleted.** `rebounding.serve.predict` replaces them
+  and is tested against the pipeline's own output. The eight lines they occupied here
+  were the source of most of §3 of the handoff brief.
+* **Probabilities are not renormalised.** The model is a grouped softmax over the ten
+  players, so they already sum to 1. The old `p / p.sum()` was fixing up a per-row
+  random forest that had never been told only one player rebounds.
+* **No static or template serving at all.** In this repo the portfolio is a separate
+  static site under `site/`, served directly by nginx; this app is a pure JSON API
+  proxied at `/api/rebound/` (see `deploy/nginx.conf`). The port's `static_folder`
+  wiring was dropped rather than adapted.
+* **Bad placements return 400 with a reason**, instead of a stack trace or a confident
+  answer computed from nine players.
+* **`/healthz`** reports which model is loaded, from the bundle's own provenance. Since
+  the weights are deployed by scp and never appear in git, that endpoint is the only
+  way to ask a running host which model it is serving.
+
+The wire format is backward compatible, so the existing `site/assets/js/rebound.js`
+works untouched: POST to `/predict`, and get back a JSON array of
+`{newx, newy, probability, scenes}` in the same order the players were sent. `scenes`
+is new -- the movement model now samples several futures per request and all of them
+come back, so a front end can fan them out as ghosts instead of drawing one confident
+dot. `newx`/`newy` are the first of those samples rather than their average, which
+matters: averaging them puts each player at the midpoint of two futures he never
+takes. `rebound.js` already posts a proper `application/json` body; the 2017
+form-encoded blob with a lying `Content-type` is still accepted so the legacy front end
+keeps working.
 """
-Rebound predictor backend — Python 3 port of the original 2017 webapp.py.
 
-Given 10 player positions at the moment of a shot, predict each player's post-shot
-position (Keras net) and their rebound probability (random forest).
+from __future__ import annotations
 
-Served behind nginx in production at /api/rebound/ -> gunicorn (127.0.0.1:8000).
-
-Model files live in ./models/:
-  - posnn.h5        Keras position model
-  - msd.pkl         (mean, std) normalizer
-  - FinalModel.pkl  scikit-learn RandomForest (retrain & drop in)
-
-If FinalModel.pkl (or any model) is missing, the app runs in a model-free FALLBACK
-mode that returns deterministic placeholder probabilities so the demo page still works.
-"""
-
-import os
 import json
-import pickle
 import logging
 
+import movement as movement_module
 import numpy as np
-import pandas as pd
-from flask import Flask, jsonify, request, render_template
-from flask_cors import CORS
+from config import Config
+from coordinates import canvas_to_model, model_to_canvas
+from flask import Flask, jsonify, request
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("rebound")
+from rebounding.models.artifact import load as load_artifact
+from rebounding.serve import PlacementError, Player, predict
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(HERE, "models")
-HOOP = np.array([41.65, 25.0])
+LOGGER = logging.getLogger(__name__)
 
-
-# --------------------------------------------------------------------------- #
-# Feature engineering (ported verbatim from the original, xrange -> range)
-# --------------------------------------------------------------------------- #
-def features(df):
-    """Prepare per-player features: distance/angle to hoop, cosine similarity to
-    the shooter, and a k-means-style box-out count."""
-    df.sort_values(by="Off", inplace=True)
-    numcols = ["x", "y"]
-
-    nums = df[numcols].values
-    diff = nums - HOOP
-    df["HDist"] = np.sqrt((diff ** 2).sum(axis=1))
-    angle = np.arctan2(diff[:, 0], diff[:, 1])
-    df["Angle"] = angle
-    df["CosSim"] = np.cos(angle - angle[df["isShoot"] == True])
-    df["Box"] = boxgen(nums)
-    df.sort_index(inplace=True)
-    return df
+N_PLAYERS = 10
 
 
-def boxgen(arr):
-    """One iteration of k-means-style assignment to estimate who is boxing out whom."""
-    bdist = np.sqrt(((arr - HOOP) ** 2).sum(axis=1)).reshape(10, 1)
-    arr = np.concatenate((arr, bdist), axis=1)
-    arr1 = arr[:5, :]
-    arr2 = arr[5:, :]
-    dists = np.array([np.sqrt(((arr1[:, :2] - row) ** 2).sum(axis=1)) for row in arr2[:, :2]])
-    d = np.argmin(dists, axis=1)
-    o = np.argmin(dists, axis=0)
-    dbox = [np.sum(o == i) for i in range(5)]
-    obox = [np.sum(d == i) for i in range(5)]
-    return np.array(dbox + obox)
+def _payload_from_request() -> dict:
+    """Accept a proper JSON body, or the form-encoded blob the 2017 front end sends."""
+    body = request.get_json(silent=True)
+    if isinstance(body, dict):
+        return body
+
+    # `script.js` sends JSON.stringify(payload) with an urlencoded Content-type, so the
+    # whole document arrives as a single form key. The original did `d.keys()[0]`,
+    # which is also why it broke on Python 3.
+    for key in request.form:
+        try:
+            parsed = json.loads(key)
+        except ValueError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+
+    raw = request.get_data(as_text=True).strip()
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except ValueError as exc:
+            raise PlacementError(f"body is not JSON: {exc}") from exc
+        if isinstance(parsed, dict):
+            return parsed
+    raise PlacementError("expected a JSON object with a 'bench' list of ten players")
 
 
-class inputDecode(object):
-    def __init__(self, posModel, norm):
-        self.posModel = posModel
-        self.normer = norm
+def _players_from(bench: list[dict]) -> tuple[list[Player], np.ndarray, np.ndarray]:
+    """Canvas-frame bench entries to model-frame players, in the order they arrived."""
+    if not isinstance(bench, list):
+        raise PlacementError("'bench' must be a list")
+    if len(bench) != N_PLAYERS:
+        raise PlacementError(f"expected {N_PLAYERS} players, got {len(bench)}")
 
-    def CreatePre(self, df):
-        self.pre = features(df)
-        self.preArr = self.pre[["x", "y"]]
+    try:
+        canvas_x = np.array([float(entry["x"]) for entry in bench])
+        canvas_y = np.array([float(entry["y"]) for entry in bench])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise PlacementError(f"every player needs numeric x and y: {exc}") from exc
 
-    def CreatePos(self):
-        vals = (self.pre.values - self.normer[0]) / self.normer[1]
-        self.posArr = self.posModel.predict(vals, batch_size=40)
-        self.pos = self.pre.copy()
-        self.pos["x"] = self.posArr[:, 0]
-        self.pos["y"] = self.posArr[:, 1]
-        self.pos["newy"] = self.posArr[:, 0]
-        self.pos["newx"] = self.posArr[:, 1]
-        self.pos = features(self.pos)
-        move = self.posArr - self.preArr
-        closer = ((self.pre["HDist"] < self.pos["HDist"]).astype(int) - 0.5) * 2
-        self.pos.pop("Off")
-        self.pos.pop("isShoot")
-        self.pos["MoveV"] = np.sqrt((move ** 2).sum(axis=1)) * closer
-
-    def Modeling(self, fitModel):
-        self.modIn = np.concatenate(
-            [self.pre.values,
-             self.pos[["x", "y", "HDist", "Angle", "CosSim", "Box", "MoveV"]].values],
-            axis=1,
+    model_x, model_y = canvas_to_model(canvas_x, canvas_y)
+    players = []
+    for index, entry in enumerate(bench):
+        # The front end says isOffense/isShooter; serve.Player says is_offense.
+        offense = entry.get("isOffense", entry.get("is_offense"))
+        shooter = entry.get("isShooter", entry.get("is_shooter", False))
+        if offense is None:
+            raise PlacementError(f"player {index} is missing isOffense")
+        players.append(
+            Player(
+                x=float(model_x[index]),
+                y=float(model_y[index]),
+                is_offense=bool(offense),
+                is_shooter=bool(shooter),
+                position=entry.get("position"),
+                player_id=entry.get("player_id"),
+            )
         )
-        probs = fitModel.predict_proba(self.modIn)
-        p = probs[:, 1]
-        self.pos["probability"] = p / p.sum()
-        return self.pos[["newx", "newy", "probability"]]
+    return players, model_x, model_y
 
 
-# --------------------------------------------------------------------------- #
-# Model loading (graceful — falls back if anything is missing)
-# --------------------------------------------------------------------------- #
-def _load_models():
-    posnn = norms = final = None
-    try:
-        # msd.pkl was pickled under Python 2 — latin1 lets Py3 unpickle its numpy arrays.
-        with open(os.path.join(MODEL_DIR, "msd.pkl"), "rb") as f:
-            norms = pickle.load(f, encoding="latin1")
-    except Exception as e:
-        log.warning("could not load msd.pkl: %s", e)
-    try:
-        from tensorflow.keras.models import load_model
-        posnn = load_model(os.path.join(MODEL_DIR, "posnn.h5"), compile=False)
-    except Exception as e:
-        log.warning("could not load posnn.h5: %s", e)
-    try:
-        import joblib
-        final = joblib.load(os.path.join(MODEL_DIR, "FinalModel.pkl"))
-    except Exception as e:
-        log.warning("could not load FinalModel.pkl: %s", e)
+def create_app(config: Config | None = None) -> Flask:
+    config = config or Config()
+    # `static_folder=None` removes Flask's default `/static` route as well. This app
+    # is JSON only; nginx serves the portfolio from `site/`, so an unused static
+    # handler here is just surface area.
+    app = Flask(__name__, static_folder=None)
+    app.config["REBOUND"] = config
 
-    ready = posnn is not None and norms is not None and final is not None
-    if not ready:
-        log.warning("running in FALLBACK mode (one or more models unavailable)")
-    return posnn, norms, final, ready
+    artifact = None
+    if config.model_path.exists():
+        artifact = load_artifact(config.model_path)
+        LOGGER.info("loaded %s", config.model_path)
+    elif config.require_model:
+        raise FileNotFoundError(
+            f"no model at {config.model_path}. Build it in the ReboundingPrediction repo "
+            "with `python -m rebounding.cli train` and scp it here, or set "
+            "REBOUND_REQUIRE_MODEL=0 to start without one."
+        )
+    else:
+        LOGGER.warning("starting without a model; /predict will return 503")
 
+    mover = movement_module.load(config.movement_model_path, enabled=config.movement_enabled)
+    app.extensions["rebound_artifact"] = artifact
+    app.extensions["rebound_movement"] = mover
 
-POSNN, NORMS, FINAL, MODELS_READY = _load_models()
+    if config.cors_origins:
+        from flask_cors import CORS
 
+        CORS(app, resources={r"/predict": {"origins": list(config.cors_origins)}})
 
-def _build_frame(bench):
-    """Reproduce the ORIGINAL column mapping deterministically.
+    @app.get("/healthz")
+    def healthz():
+        payload = {
+            "status": "ok" if artifact is not None else "no model",
+            "movement_model": mover.name,
+            "movement_detail": mover.detail,
+        }
+        if artifact is not None:
+            meta = artifact.metadata
+            payload["model"] = {
+                "features": len(artifact.features),
+                "regime": artifact.regime,
+                "built": meta.get("created_utc"),
+                "commit": (meta.get("git") or {}).get("commit"),
+                "fit_on": meta.get("fit_on"),
+                "test_top1": (meta.get("scores", {}).get("test") or {}).get("top1"),
+            }
+        return jsonify(payload), (200 if artifact is not None else 503)
 
-    The 2017 app ran on old pandas, where DataFrame(list_of_dicts) ordered columns
-    ALPHABETICALLY: [isOffense, isShooter, x, y]. It then renamed positionally to
-    ['Off', 'isShoot', 'y', 'x'] — i.e. isOffense->Off, isShooter->isShoot, and x/y
-    swap to the model's coordinate convention. Modern pandas preserves dict order,
-    so we sort the columns explicitly to keep the model's expected feature order.
-    """
-    df = pd.DataFrame(bench)
-    df = df[sorted(df.columns)]          # -> isOffense, isShooter, x, y
-    df.columns = ["Off", "isShoot", "y", "x"]
-    df["Off"] = df["Off"].astype(int)
-    df["isShoot"] = df["isShoot"].astype(int)
-    return df
+    @app.post("/predict")
+    def predict_route():
+        if artifact is None:
+            return jsonify({"error": "no model loaded"}), 503
 
+        payload = _payload_from_request()
+        players, _, _ = _players_from(payload.get("bench"))
+        # An artifact fitted on the served+movement regime needs the movement model to
+        # build its last ten columns, so hand it over whenever there is one.
+        prediction = predict(artifact, players, movement=mover.artifact)
 
-def _predict_real(bench):
-    df = _build_frame(bench)
-    script = inputDecode(posModel=POSNN, norm=NORMS)
-    script.CreatePre(df)
-    script.CreatePos()
-    res = script.Modeling(fitModel=FINAL).sort_index()
-    return [res.loc[i].to_dict() for i in res.index]
+        scenes = mover.scenes(players, n=config.movement_scenes, seed=config.movement_seed)
+        canvas_scenes = [model_to_canvas(scene[:, 0], scene[:, 1]) for scene in scenes]
 
+        # `newx`/`newy` are **one draw**, not the average of the draws. Meaning them
+        # together would put every player at the midpoint of futures he never takes,
+        # which is the drift the retrained model exists to stop; see movement.py.
+        first_cx, first_cy = canvas_scenes[0]
 
-def _predict_fallback(bench):
-    """Model-free placeholder: no movement, probability inversely proportional to
-    distance from the hoop. Keeps the demo interactive without any model files."""
-    out = []
-    dists = []
-    for p in bench:
-        x, y = float(p["x"]), float(p["y"])
-        dists.append(np.hypot(x - HOOP[0], y - HOOP[1]))
-    inv = [1.0 / (d + 1.0) for d in dists]
-    total = sum(inv) or 1.0
-    for p, w in zip(bench, inv):
-        x, y = float(p["x"]), float(p["y"])
-        # nudge each player 15% closer to the rim so the animation still moves
-        out.append({
-            "newx": x + 0.15 * (HOOP[0] - x),
-            "newy": y + 0.15 * (HOOP[1] - y),
-            "probability": w / total,
-        })
-    return out
+        # Same order the bench arrived in, which is what script.js indexes by.
+        return jsonify(
+            [
+                {
+                    "newx": float(first_cx[i]),
+                    "newy": float(first_cy[i]),
+                    "probability": float(prediction.probabilities[i]),
+                    # Every sampled future for this player, for a front end that wants
+                    # to draw the spread rather than one confident dot.
+                    "scenes": [
+                        [float(cx[i]), float(cy[i])] for cx, cy in canvas_scenes
+                    ],
+                }
+                for i in range(N_PLAYERS)
+            ]
+        )
 
+    @app.errorhandler(PlacementError)
+    def placement_error(exc: PlacementError):
+        return jsonify({"error": str(exc)}), 400
 
-# --------------------------------------------------------------------------- #
-# App
-# --------------------------------------------------------------------------- #
-app = Flask(__name__)
-CORS(app)
-
-
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({"status": "ok", "models_ready": MODELS_READY})
-
-
-@app.route("/predict", methods=["POST"])
-def predict():
-    # Accept a clean JSON body; fall back to the legacy form-encoded shape.
-    data = request.get_json(silent=True)
-    if data is None:
-        form = request.form.to_dict()
-        if form:
-            data = json.loads(next(iter(form)))
-    if not data or "bench" not in data:
-        return jsonify({"error": "expected JSON body with a 'bench' array"}), 400
-
-    bench = data["bench"]
-    if len(bench) != 10:
-        return jsonify({"error": "expected exactly 10 players"}), 400
-
-    try:
-        result = _predict_real(bench) if MODELS_READY else _predict_fallback(bench)
-    except Exception as e:
-        log.exception("prediction failed")
-        return jsonify({"error": str(e)}), 500
-    return jsonify(result)
+    return app
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    app.run(host="127.0.0.1", port=port)
+    logging.basicConfig(level=logging.INFO)
+    local = create_app()
+    # Development only. Production runs under gunicorn; see gunicorn.conf.py.
+    local.run(host="127.0.0.1", port=local.config["REBOUND"].port, debug=True)

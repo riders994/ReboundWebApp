@@ -2,6 +2,12 @@
 # Install to /etc/systemd/system/rebound.service, then:
 #   sudo systemctl daemon-reload && sudo systemctl enable --now rebound
 # Adjust User and paths to match your EC2 setup.
+#
+# The model bundles are NOT in git. Copy them to models/ before starting:
+#   scp FinalModel.pkl MovementModel.pkl <host>:/opt/rebound-app/models/
+# The unit refuses to start without the rebounder (REBOUND_REQUIRE_MODEL defaults to
+# on) rather than serving 503s that nobody notices. Confirm what is live with:
+#   curl -s localhost:8000/healthz
 
 [Unit]
 Description=Rebound predictor (gunicorn)
@@ -11,7 +17,15 @@ After=network.target
 User=ubuntu
 WorkingDirectory=/opt/rebound-app
 Environment="PORT=8000"
-ExecStart=/opt/rebound-app/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 app:app
+# Movement model is optional and fail-soft; set to 0 to serve probabilities only
+# and leave every player where he was placed.
+Environment="REBOUND_MOVEMENT=1"
+# Worker count. gunicorn.conf.py defaults to min(4, cpu_count), and workers do NOT share
+# model memory (preload_app is off — it deadlocks torch across a fork), so each one costs
+# ~430 MB. Two workers measure ~690 MB total. Pin this if you resize the instance, or a
+# 4-vCPU box will quietly spawn 4 workers and want ~1.4 GB.
+Environment="WEB_CONCURRENCY=2"
+ExecStart=/opt/rebound-app/venv/bin/gunicorn -c gunicorn.conf.py wsgi:app
 Restart=on-failure
 RestartSec=5
 
