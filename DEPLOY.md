@@ -23,9 +23,10 @@ Five things, two of which have to be prepared off this box:
 - [ ] **The domain's DNS in Route 53** — it already is; nameservers are `ns-*.awsdns-*`.
 - [ ] **Both model bundles in hand**, built in the ReboundingPrediction repo:
       `python -m rebounding.cli train` and `train-movement`. The service **refuses to start**
-      without `FinalModel.pkl`, so get these before step 5, not after.
-- [ ] **The commit SHA those bundles were built at.** Step 5 pins the `rebounding` package to
-      it. `python -m rebounding.cli describe --model FinalModel.pkl` will tell you, and
+      without `FinalModel.pkl`, and step 5b copies them up from your laptop — so have them
+      locally before you start, not after.
+- [ ] **The commit SHA those bundles were built at.** Step 5a pins the `rebounding` package
+      to it. `python -m rebounding.cli describe --model FinalModel.pkl` will tell you, and
       `/healthz` reports it once deployed.
 - [ ] **The retrain work merged into `primary`** — or be ready to check out the branch on the
       box. See step 3.
@@ -223,10 +224,15 @@ sudo chown -R www-data:www-data /var/www/site
 ```
 
 ## 5. Backend (gunicorn + systemd)
+
+Three parts. **5b runs on your laptop, not the box** — that shell switch is the step people
+miss, because everything on either side of it is copy-paste over SSH.
+
+### 5a. Code and venv *(on the box)*
 ```bash
 sudo rsync -a rebound-app/ /opt/rebound-app/
 # Own it as `ubuntu`, the user the service runs as. Without this the venv cannot be created
-# and the scp of the model bundles lands on a root-owned directory and is refused.
+# and the scp in 5b lands on a root-owned directory and is refused.
 sudo chown -R ubuntu:ubuntu /opt/rebound-app
 cd /opt/rebound-app
 mkdir -p models                            # tracked via models/README.md, but harmless
@@ -244,12 +250,33 @@ python3 -m venv venv
 # Pin to the COMMIT the deployed bundle was built at, not a branch — see "The model
 # files" below for why a drifted package fails quietly rather than loudly.
 ./venv/bin/pip install 'rebounding[serve] @ git+https://github.com/riders994/ReboundingPrediction@<commit>'
+```
 
-# Copy both bundles into place (see "The model files" below) BEFORE first start —
-# the service refuses to start without the rebounder:
-#   /opt/rebound-app/models/FinalModel.pkl
-#   /opt/rebound-app/models/MovementModel.pkl
+### 5b. Copy the model bundles in *(from your laptop)*
+The bundles are gitignored and never in the repo, so the clone in step 3 did **not** bring
+them — `models/` arrives holding only its README. The service refuses to start without
+`FinalModel.pkl`, so this happens **before 5c**, not after.
 
+Open a second terminal **on your own machine**, in the directory holding the two bundles you
+built during "Before you start":
+```bash
+# on your laptop — same key you SSH with, same IP from step 0.3
+scp -i postup.pem FinalModel.pkl MovementModel.pkl ubuntu@<ELASTIC_IP>:/opt/rebound-app/models/
+```
+Then back on the box, confirm both landed:
+```bash
+ls -l /opt/rebound-app/models/    # both .pkl files, owned by ubuntu:ubuntu
+```
+Failure modes worth naming, because neither says "you skipped a step":
+- `Permission denied` — 5a's `chown` was skipped, so the destination is still root-owned.
+- `No such file or directory` — 5a never ran, so `/opt/rebound-app/` does not exist yet.
+
+Any transfer that ends with both files in that directory is fine — `rsync -e ssh`, or a
+bucket and `aws s3 cp` if the laptop cannot reach the box directly. See "The model files"
+for what these bundles are and how to rebuild them.
+
+### 5c. Service, start, smoke test *(on the box)*
+```bash
 sudo cp ~/ReboundWebApp/deploy/rebound.service /etc/systemd/system/rebound.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now rebound
@@ -261,6 +288,9 @@ curl -s localhost:8000/healthz    # reports WHICH model is live
 curl -s -X POST localhost:8000/predict -H 'Content-Type: application/json' \
      --data @/opt/rebound-app/sample.json | head -c 200
 ```
+A start that fails immediately here, with `journalctl -u rebound -e` showing a missing
+model, means 5b did not land — check `ls -l /opt/rebound-app/models/` before anything else.
+
 `/healthz` returns the deployed bundle's own provenance — build commit, corpus, fit,
 test score — which is the only way to identify weights that never enter git:
 ```json
@@ -313,9 +343,10 @@ sudo rsync -a --delete site/ /var/www/site/
 sudo rsync -a rebound-app/ /opt/rebound-app/ --exclude venv --exclude models
 sudo systemctl restart rebound
 ```
-This redeploys the *app*, not the model. New weights need the copy-in step below — and if
-the retrain moved the feature list, the `rebounding` package must be reinstalled at the
-matching commit too. See "Upgrade the package with the weights, not after".
+Note `--exclude models`: this redeploys the *app*, not the weights, and deliberately will
+not clobber the bundles already on the box. New weights need the step 5b copy-in again —
+and if the retrain moved the feature list, the `rebounding` package must be reinstalled at
+the matching commit too. See "Upgrade the package with the weights, not after".
 
 ### Content updates from your laptop (`scripts/publish.sh`)
 For a **static-content** change (comedy tags/videos, projects, gallery images) you don't
@@ -337,7 +368,8 @@ still deployed with the git-pull block above.
 ## The model files
 Both bundles are gitignored and never in the repo. Build them in the
 **ReboundingPrediction** repo (`python -m rebounding.cli train` / `train-movement`) and
-copy them to the box:
+copy them to the box. On a first deploy this is **step 5b**; the same command replaces the
+weights on a running box:
 ```bash
 scp -i postup.pem FinalModel.pkl MovementModel.pkl ubuntu@<ELASTIC_IP>:/opt/rebound-app/models/
 sudo systemctl restart rebound
@@ -397,10 +429,14 @@ IP: that must be released explicitly or it keeps billing (~$3.60/mo) while unatt
 - `journalctl -u rebound -e` — backend logs (model load warnings, prediction errors).
 - `sudo tail -f /var/log/nginx/error.log` — proxy / static errors.
 - 502 on `/api/rebound/predict` → the `rebound` service isn't running or crashed on model load.
+- **Service refuses to start, log says the rebounder is missing** → `models/FinalModel.pkl`
+  is not on the box. The clone does not carry it; it goes up separately in step 5b. Check
+  with `ls -l /opt/rebound-app/models/`, and note an `scp` onto a root-owned
+  `/opt/rebound-app` fails with `Permission denied` — rerun 5a's `chown` and copy again.
 - **Worker fails to boot with `ModuleNotFoundError: No module named 'rebounding'`** → the
   feature-code package is not installed in `/opt/rebound-app/venv`. The bundles store the
   model and priors *by class*, so joblib needs the package to reconstruct them; it is a
-  hard serving dependency, not a build-time one. Install it as in step 5.
+  hard serving dependency, not a build-time one. Install it as in step 5a.
 - **Worker fails to boot with `ModuleNotFoundError: No module named 'flask_cors'`** → you set
   `REBOUND_CORS_ORIGINS` without installing the optional dependency. `flask-cors` is commented
   out in `requirements.txt` because same-origin serving does not need it, but setting the env
