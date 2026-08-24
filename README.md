@@ -12,7 +12,7 @@ site/            Static portfolio (plain HTML/CSS/JS, no build step) — nginx d
   resume.html        resume + PDF download
   blog/              posts
   comedy.html        stand-up / performances
-  assets/            css, js, images, svg  (headshot.jpg, resume.pdf, thumbs are TODO)
+  assets/            css, js, images, svg  (headshot.jpg, thumbs are TODO)
 rebound-app/     Flask JSON API for the demo (Python 3) — no static/template serving
   app.py             HTTP only; all features come from the `rebounding` package
   coordinates.py     canvas<->model frame conversion — read before touching geometry
@@ -89,6 +89,6 @@ serving forecasts — and appears nowhere in this repo.)
 See [DEPLOY.md](DEPLOY.md).
 
 ## TODO content
-Bio + headshot, resume PDF, project #2–4, comedy clips/shows, blog posts — all marked with
+Bio + headshot, project #2–4, comedy clips/shows, blog posts — all marked with
 `TODO` in the HTML. The rebounding case study and blog post have been updated for the
 2026 retrain; the blog post still carries a `TODO` about putting it in your own voice.
