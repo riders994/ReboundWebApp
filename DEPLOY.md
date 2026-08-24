@@ -105,13 +105,50 @@ different things and having one says nothing about the other. The bare domain (t
 "root") is written `@`; the other is written `www`. Both point at the same server — you are
 not running two sites, you are telling DNS that two names lead to one place.
 
-| Type | Name | Value          | Resolves |
-|------|------|----------------|----------|
-| A    | `@`  | `<ELASTIC_IP>` | `postuptothe.net` |
-| A    | `www`| `<ELASTIC_IP>` | `www.postuptothe.net` |
+| Type | Record name | Value          | Resolves |
+|------|-------------|----------------|----------|
+| A    | *(leave blank)* | `<ELASTIC_IP>` | `postuptothe.net` |
+| A    | `www`       | `<ELASTIC_IP>` | `www.postuptothe.net` |
+
+> **Route 53 does not use `@`.** Most registrar UIs write the apex as `@`, but Route 53's
+> "Record name" field is a *prefix* — it appends `.postuptothe.net` for you, shown greyed
+> out beside the box. Leave it **empty** for the apex. Typing `@` creates a record for
+> the literal name `@.postuptothe.net`, which resolves nothing and looks fine in the list.
 
 Set **TTL 300** while you are changing things, so a mistake corrects in five minutes instead
 of an hour. Raise it once the site is stable.
+
+### Doing it, click by click
+You need the Elastic IP from step 0.3 first — allocate and associate it before touching DNS,
+so you only edit the zone once.
+
+1. AWS console → **Route 53** → **Hosted zones** → **postuptothe.net**.
+2. **Update the apex.** There is already an `A` record named `postuptothe.net` pointing at the
+   old address. Tick it → **Edit record** → replace **Value** with the new Elastic IP → set
+   **TTL** to `300` → **Save**.
+3. **Create the `www` record.** **Create record** → **Record name**: type `www` → **Record
+   type**: `A` → **Value**: the same Elastic IP → **TTL**: `300` → **Create records**.
+4. Wait a minute, then verify with the `dig` commands below. Both must print the new IP.
+
+Ignore the `NS` and `SOA` records already in the zone — they are the zone's own plumbing and
+must not be edited.
+
+If you prefer the CLI (`aws` is not installed on this box by default):
+```bash
+ZONE=$(aws route53 list-hosted-zones-by-name --dns-name postuptothe.net \
+       --query 'HostedZones[0].Id' --output text)
+aws route53 change-resource-record-sets --hosted-zone-id "$ZONE" --change-batch '{
+  "Changes": [
+    {"Action":"UPSERT","ResourceRecordSet":{
+      "Name":"postuptothe.net","Type":"A","TTL":300,
+      "ResourceRecords":[{"Value":"<ELASTIC_IP>"}]}},
+    {"Action":"UPSERT","ResourceRecordSet":{
+      "Name":"www.postuptothe.net","Type":"A","TTL":300,
+      "ResourceRecords":[{"Value":"<ELASTIC_IP>"}]}}
+  ]}'
+```
+`UPSERT` creates the record if absent and overwrites it if present, so the same command
+handles both the apex update and the new `www`.
 
 > **Create BOTH records, and before step 7.** Certbot proves you control each name by
 > fetching a file over HTTP from it, and step 7 requests one certificate covering both
@@ -137,10 +174,10 @@ misconfigured one.
 > A record. Then the IP lives in exactly one place and the next IP change is a single edit.
 > The apex must stay an A record either way — standard DNS does not allow a CNAME there.
 
-| Type  | Name  | Value              |
-|-------|-------|--------------------|
-| A     | `@`   | `<ELASTIC_IP>`     |
-| CNAME | `www` | `postuptothe.net`  |
+| Type  | Record name | Value              |
+|-------|-------------|--------------------|
+| A     | *(blank)*   | `<ELASTIC_IP>`     |
+| CNAME | `www`       | `postuptothe.net`  |
 
 ## 2. Install packages
 ```bash
