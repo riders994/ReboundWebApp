@@ -19,6 +19,7 @@ demo hangs rather than erroring. Loading after the fork costs about six megabyte
 worker and a second of start-up, which is the cheap side of that trade.
 """
 
+import logging
 import multiprocessing
 import os
 import sys
@@ -51,13 +52,33 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 
 def post_fork(server, worker):
-    """Pin torch to one thread inside each worker, after the fork."""
+    """Pin torch to one thread, and give the app's loggers somewhere to go.
+
+    Both have to happen here rather than at import: `preload_app` is off, so the worker
+    is where torch is first loaded and where `create_app` runs. gunicorn calls this
+    before `init_process` loads the WSGI app, so the handlers below are in place before
+    the app logs its first line.
+    """
     try:
         import torch
 
         torch.set_num_threads(1)
     except ImportError:
         pass  # movement model is optional; the rebounder does not need torch
+
+    # gunicorn configures its own `gunicorn.error` logger and leaves the root logger
+    # alone, and nothing else configures it either -- `logging.basicConfig` is in
+    # app.py's `__main__` block, which gunicorn never executes. The result is that
+    # every `LOGGER.info` in the app is dropped and every warning is emitted by
+    # logging's `lastResort` handler, which has no formatter: the telemetry sink and
+    # model-load lines never reach `journalctl -u rebound`, and the warnings that do
+    # arrive bare, with no timestamp, level or logger name. Handing the root logger
+    # gunicorn's handlers puts app logs in the same stream and format as gunicorn's
+    # own, under the same LOG_LEVEL.
+    error_log = logging.getLogger("gunicorn.error")
+    root = logging.getLogger()
+    root.handlers = error_log.handlers
+    root.setLevel(error_log.level)
 
 
 accesslog = "-"

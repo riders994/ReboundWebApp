@@ -21,7 +21,7 @@ rebound-app/     Flask JSON API for the demo (Python 3) — no static/template s
   config.py          all runtime config, from the environment
   wsgi.py            gunicorn entry point (`wsgi:app`)
   gunicorn.conf.py   NB: preload_app must stay off — see the docstring
-  tests/             61 tests, incl. a regression fixture from the pipeline itself
+  tests/             62 tests, incl. a regression fixture from the pipeline itself
   models/            FinalModel.pkl + MovementModel.pkl — gitignored, copied in
 deploy/          nginx.conf, rebound.service
 DEPLOY.md        EC2 deployment runbook
