@@ -25,6 +25,18 @@ Environment="REBOUND_MOVEMENT=1"
 # ~430 MB. Two workers measure ~690 MB total. Pin this if you resize the instance, or a
 # 4-vCPU box will quietly spawn 4 workers and want ~1.4 GB.
 Environment="WEB_CONCURRENCY=2"
+
+# Prediction logging (rebound-app/telemetry.py). Optional, and off unless
+# REBOUND_DATABASE_URL is set; see "5d. Prediction logging" in DEPLOY.md.
+#
+# The connection string is NOT set with Environment= on purpose: `systemctl show
+# rebound` prints those to any user on the box, password included. EnvironmentFile
+# reads a root-owned 0600 file instead, and the leading `-` means a missing file is
+# ignored, so this unit still starts unchanged on a host with no database.
+EnvironmentFile=-/etc/rebound/telemetry.env
+# Set REBOUND_TELEMETRY=0 to stop recording without touching the credentials.
+Environment="REBOUND_TELEMETRY=1"
+
 ExecStart=/opt/rebound-app/venv/bin/gunicorn -c gunicorn.conf.py wsgi:app
 Restart=on-failure
 RestartSec=5

@@ -37,6 +37,18 @@ torch==2.13.0+cpu
 # the same origin in production, so it normally is not.
 # flask-cors>=4.0
 
+# Prediction logging (telemetry.py). Only does anything when REBOUND_DATABASE_URL is
+# set -- with no URL the module never imports it at all, and with a URL but no driver
+# logging degrades to a one-line reason on /healthz. Installed by default anyway so that
+# turning logging on is an environment change rather than a redeploy.
+#
+# A floor, not a pin, unlike everything above: those are pinned because unpickling the
+# bundles reconstructs numpy/pandas objects and a drifting minor version is a runtime
+# failure. Nothing here is unpickled, so psycopg only has to satisfy its own API.
+# `[binary]` ships the libpq wheel; drop the extra if you would rather link the system
+# libpq (`sudo apt install libpq5`).
+psycopg[binary]>=3.2,<4
+
 # TensorFlow is gone: posnn.h5 was retrained as MovementModel.pkl and nothing loads
 # Keras any more. msd.pkl has no successor -- the normalisation constants are buffers
 # inside the bundle, where they cannot drift from the weights.

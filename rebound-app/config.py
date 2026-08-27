@@ -66,4 +66,30 @@ class Config:
     # Refuse to start without a model rather than serving 503s nobody notices.
     require_model: bool = field(default_factory=lambda: _flag("REBOUND_REQUIRE_MODEL", True))
 
+    # Postgres for prediction logging. Empty (the default) means nothing is recorded
+    # and the app has no database dependency at all -- see telemetry.py. The server is
+    # shared with other projects on the same box, so this app gets its own schema
+    # rather than writing into `public`.
+    #
+    # A libpq connection string or URL, e.g.
+    #   postgresql://rebound:...@127.0.0.1:5432/rebound
+    # Prefer a password file or PG* environment variables over a secret in the unit
+    # file; libpq reads both, and `Environment=` in a systemd unit is world-readable
+    # via `systemctl show`.
+    database_url: str = field(default_factory=lambda: os.getenv("REBOUND_DATABASE_URL", "").strip())
+
+    # Off switch that leaves the URL in place, for turning logging off during an
+    # incident without editing the connection string out of the unit.
+    telemetry_enabled: bool = field(default_factory=lambda: _flag("REBOUND_TELEMETRY", True))
+
+    telemetry_schema: str = field(
+        default_factory=lambda: os.getenv("REBOUND_DB_SCHEMA", "rebound").strip() or "rebound"
+    )
+
+    # Rows buffered per worker before new ones are dropped. Bounded on purpose: an
+    # unbounded queue turns a database outage into an out-of-memory kill.
+    telemetry_queue_size: int = field(
+        default_factory=lambda: int(os.getenv("REBOUND_TELEMETRY_QUEUE", "512"))
+    )
+
     port: int = field(default_factory=lambda: int(os.getenv("PORT", "8000")))

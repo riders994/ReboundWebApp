@@ -22,6 +22,10 @@ Changes worth knowing about, beyond Python 3 and current Flask:
 * **`/healthz`** reports which model is loaded, from the bundle's own provenance. Since
   the weights are deployed by scp and never appear in git, that endpoint is the only
   way to ask a running host which model it is serving.
+* **Served predictions are logged**, if a database is configured, so that answer is
+  retained per prediction rather than only being available live. See `telemetry.py`:
+  it is optional, off by default, writes on a background thread, and fails soft, so
+  `/predict` behaves identically whether or not Postgres is reachable.
 
 The wire format is backward compatible, so the existing `site/assets/js/rebound.js`
 works untouched: POST to `/predict`, and get back a JSON array of
@@ -42,6 +46,7 @@ import logging
 
 import movement as movement_module
 import numpy as np
+import telemetry as telemetry_module
 from config import Config
 from coordinates import canvas_to_model, model_to_canvas
 from flask import Flask, jsonify, request
@@ -138,8 +143,33 @@ def create_app(config: Config | None = None) -> Flask:
         LOGGER.warning("starting without a model; /predict will return 503")
 
     mover = movement_module.load(config.movement_model_path, enabled=config.movement_enabled)
+    # Started here, not at import, because `create_app` runs in the gunicorn *worker*
+    # (preload_app is off) and the writer's connection must not be inherited across a
+    # fork. See telemetry.py.
+    sink = telemetry_module.load(
+        config.database_url,
+        schema=config.telemetry_schema,
+        enabled=config.telemetry_enabled,
+        queue_size=config.telemetry_queue_size,
+    )
+    LOGGER.info("telemetry: %s (%s)", sink.name, sink.detail)
+
     app.extensions["rebound_artifact"] = artifact
     app.extensions["rebound_movement"] = mover
+    app.extensions["rebound_telemetry"] = sink
+
+    # The bundle's provenance, read once. Every logged row carries it, so a prediction
+    # somebody asks about later can be tied to the build that produced it even after
+    # the weights on disk have been replaced by a retrain.
+    if artifact is not None:
+        meta = artifact.metadata
+        provenance = {
+            "commit": (meta.get("git") or {}).get("commit"),
+            "built": meta.get("created_utc"),
+            "top1": (meta.get("scores", {}).get("test") or {}).get("top1"),
+        }
+    else:
+        provenance = {"commit": None, "built": None, "top1": None}
 
     if config.cors_origins:
         from flask_cors import CORS
@@ -152,6 +182,10 @@ def create_app(config: Config | None = None) -> Flask:
             "status": "ok" if artifact is not None else "no model",
             "movement_model": mover.name,
             "movement_detail": mover.detail,
+            # Rows recorded and rows dropped, per worker. A rising `dropped` with a
+            # 200 here is the signature this endpoint exists to make visible: the app
+            # is healthy and the logging behind it is not.
+            "telemetry": {"sink": sink.name, "detail": sink.detail, **sink.stats},
         }
         if artifact is not None:
             meta = artifact.metadata
@@ -170,6 +204,9 @@ def create_app(config: Config | None = None) -> Flask:
         if artifact is None:
             return jsonify({"error": "no model loaded"}), 503
 
+        served_at = telemetry_module.now()
+        started = telemetry_module.monotonic()
+
         payload = _payload_from_request()
         players, _, _ = _players_from(payload.get("bench"))
         # An artifact fitted on the served+movement regime needs the movement model to
@@ -178,6 +215,40 @@ def create_app(config: Config | None = None) -> Flask:
 
         scenes = mover.scenes(players, n=config.movement_scenes, seed=config.movement_seed)
         canvas_scenes = [model_to_canvas(scene[:, 0], scene[:, 1]) for scene in scenes]
+
+        # Only successful predictions are recorded. A 400 is a placement the model was
+        # never asked about, and mixing refusals into a table whose purpose is the
+        # distribution of *served* lineups would bias exactly the thing it measures.
+        probabilities = [float(p) for p in prediction.probabilities]
+        # `record` is contracted never to raise -- both sinks queue or discard and
+        # return -- but the contract is defended here rather than trusted, because the
+        # cost of being wrong is a 500 on a working prediction. See telemetry.py.
+        try:
+            sink.record(
+                telemetry_module.Prediction(
+                    served_at=served_at,
+                    model_commit=provenance["commit"],
+                    model_built=provenance["built"],
+                    model_top1=provenance["top1"],
+                    movement=mover.name,
+                    latency_ms=(telemetry_module.monotonic() - started) * 1000.0,
+                    scenes=len(canvas_scenes),
+                    # Model frame, and `position` kept even when null -- see telemetry.py.
+                    lineup=[
+                        {
+                            "x": float(player.x),
+                            "y": float(player.y),
+                            "is_offense": bool(player.is_offense),
+                            "is_shooter": bool(player.is_shooter),
+                            "position": player.position,
+                        }
+                        for player in players
+                    ],
+                    probabilities=probabilities,
+                )
+            )
+        except Exception:  # noqa: BLE001 - logging must not decide the response
+            LOGGER.exception("telemetry.record raised; prediction served anyway")
 
         # `newx`/`newy` are **one draw**, not the average of the draws. Meaning them
         # together would put every player at the midpoint of futures he never takes,
@@ -190,7 +261,7 @@ def create_app(config: Config | None = None) -> Flask:
                 {
                     "newx": float(first_cx[i]),
                     "newy": float(first_cy[i]),
-                    "probability": float(prediction.probabilities[i]),
+                    "probability": probabilities[i],
                     # Every sampled future for this player, for a front end that wants
                     # to draw the spread rather than one confident dot.
                     "scenes": [
