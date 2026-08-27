@@ -17,10 +17,11 @@ rebound-app/     Flask JSON API for the demo (Python 3) — no static/template s
   app.py             HTTP only; all features come from the `rebounding` package
   coordinates.py     canvas<->model frame conversion — read before touching geometry
   movement.py        movement model adapter; optional and fail-soft
+  telemetry.py       optional prediction logging to Postgres; off by default, fails soft
   config.py          all runtime config, from the environment
   wsgi.py            gunicorn entry point (`wsgi:app`)
   gunicorn.conf.py   NB: preload_app must stay off — see the docstring
-  tests/             40 tests, incl. a regression fixture from the pipeline itself
+  tests/             62 tests, incl. a regression fixture from the pipeline itself
   models/            FinalModel.pkl + MovementModel.pkl — gitignored, copied in
 deploy/          nginx.conf, rebound.service
 DEPLOY.md        EC2 deployment runbook
@@ -66,6 +67,20 @@ which is what `/healthz` reports and what makes a copy-in workflow auditable.
 
 The old model-free fallback is gone: a missing rebounder is now a refusal to start
 rather than plausible-looking placeholder numbers served silently.
+
+### Prediction logging
+Optional, off unless `REBOUND_DATABASE_URL` is set, and shares the EC2 box's Postgres
+with other projects under its own `rebound` schema. Each served prediction becomes a row:
+the ten placements in model-frame coordinates, the probabilities returned, latency, and
+the bundle's build commit. Two questions it exists to answer — how far real traffic sits
+from the corpus the 29.7% below was measured on, and which build produced a given
+prediction once the weights on disk have been replaced by a retrain.
+
+Rows are written on a background thread from a bounded queue, so an unreachable database
+costs dropped rows and never a failed or slower `/predict`; `/healthz` reports the sink
+and its dropped count. Nothing recorded identifies a visitor — no IP, user agent, cookie
+or session id. Setup is step 5d of [DEPLOY.md](DEPLOY.md); the table is created on first
+write, so there is no migration to run.
 
 ### Accuracy, stated honestly
 The bundle reports **29.7% top-1** (66.8% top-3, MRR 0.520) over 5,756 held-out shots,

@@ -81,9 +81,14 @@ sending `0.0.0.0/0` to it. Launch without touching the networking panel and you 
 which is what this runbook assumes.
 
 That is the right shape here: one public instance, nginx terminating TLS, gunicorn bound to
-`127.0.0.1`. No private subnet, no load balancer, no database — so **no NAT gateway**, which
-is the thing worth checking for, since it bills ~$32/mo whether or not traffic flows. The
+`127.0.0.1`. No private subnet, no load balancer, no RDS — so **no NAT gateway**, which is
+the thing worth checking for, since it bills ~$32/mo whether or not traffic flows. The
 security group is the real access control.
+
+If you turn on prediction logging (step 5d), Postgres runs **on this same instance**, over
+the loopback interface, and none of the above changes: no managed database, no extra subnet,
+no NAT gateway, and nothing new opened in the security group. Postgres must not be reachable
+from the internet — see 5d.
 
 Most VPC objects are free. These are not:
 
@@ -302,6 +307,94 @@ test score — which is the only way to identify weights that never enter git:
 > *is* fail-soft: probabilities are unaffected and players simply stay where they were
 > placed — `movement_model` reads `none` and `movement_detail` says why.
 
+### 5d. Prediction logging *(optional, on the box)*
+
+Off by default: with no `REBOUND_DATABASE_URL` the app never imports a database driver
+and behaves exactly as it did before this existed. Turn it on and every **served**
+prediction becomes a row — the ten placements the model was given, the probabilities it
+returned, its latency, and the bundle's own build commit.
+
+Two things it buys, and both are the reason to bother:
+
+- **The distribution question becomes answerable.** The bundle's 29.7% top-1 was measured
+  on real NBA lineups (37% guards, 11% centres). The README calls that a ceiling rather
+  than a promise for a visitor who sketches five centres — but nothing measures how far
+  real traffic actually sits from the corpus. This table is that measurement, including
+  how often `position` arrives null and the pipeline's `role` falls back to its default.
+- **Provenance outlives the process.** `/healthz` tells you what a *running* host serves.
+  After a retrain that answer is gone, and "which model produced this?" has no answer.
+  Every row carries the commit and build time, so it does.
+
+This app is not the reason Postgres is on the box — it shares the server with other
+projects — so it gets its own role, database and schema rather than writing into
+`public`.
+
+```bash
+sudo apt install -y postgresql            # if it is not already there for something else
+sudo -u postgres createuser rebound --pwprompt
+sudo -u postgres createdb  rebound --owner rebound
+
+# The app creates its schema and table on the first row it writes, so there is no
+# migration step and nothing to run by hand — but it can only do that if it is allowed to.
+sudo -u postgres psql -d rebound -c 'GRANT CREATE ON DATABASE rebound TO rebound;'
+```
+
+Confirm Postgres is listening on **loopback only** before going further. The default on
+Ubuntu is `listen_addresses = 'localhost'`, which is what you want; the security group
+does not open 5432 either, and neither should you.
+```bash
+sudo ss -lntp | grep 5432                 # expect 127.0.0.1:5432, not 0.0.0.0:5432
+```
+
+The connection string goes in a root-owned file, not in the unit — `systemctl show
+rebound` prints `Environment=` lines, password and all, to any user on the box:
+```bash
+sudo install -d -m 750 /etc/rebound
+sudo tee /etc/rebound/telemetry.env >/dev/null <<'ENV'
+REBOUND_DATABASE_URL=postgresql://rebound:PUT_THE_PASSWORD_HERE@127.0.0.1:5432/rebound
+ENV
+sudo chmod 600 /etc/rebound/telemetry.env
+sudo systemctl restart rebound
+```
+
+`deploy/rebound.service` already reads that path (`EnvironmentFile=-/etc/rebound/…`, where
+the `-` means "ignore it if absent"), so a host without the file starts unchanged.
+
+Check it from `/healthz`, which now reports the sink alongside the model:
+```bash
+curl -s localhost:8000/healthz | python3 -m json.tool   # "telemetry": {"sink": "postgres", …}
+curl -s -X POST localhost:8000/predict -H 'Content-Type: application/json' \
+     --data @/opt/rebound-app/sample.json >/dev/null
+sudo -u postgres psql -d rebound -c 'SELECT count(*) FROM rebound.predictions;'
+```
+
+> **Nothing here identifies a visitor.** No IP, no user agent, no cookie, no session id —
+> only the placements somebody deliberately made. Keep it that way: the table is worth
+> having precisely because querying it does not require thinking about who is in it.
+
+> **A database problem is never a site problem.** Rows go on a bounded in-memory queue and
+> a background thread writes them, so a Postgres that is down, slow, or absent costs
+> dropped rows and nothing else — no added latency on `/predict`, no failed responses, no
+> failed start. `telemetry.dropped` on `/healthz` is where that shows up, and it is worth
+> watching, because by design nothing else will tell you.
+
+Some useful first queries once rows accumulate:
+```sql
+-- How much traffic is the model seeing without listed positions? (the 26.9% case)
+SELECT count(*) FILTER (WHERE p->>'position' IS NULL)::float / count(*) AS null_role_share
+FROM rebound.predictions, LATERAL jsonb_array_elements(lineup) AS p;
+
+-- The position mix visitors actually build, against the corpus's 37% G / 11% C.
+SELECT p->>'position' AS position, count(*),
+       round(100.0 * count(*) / sum(count(*)) OVER (), 1) AS pct
+FROM rebound.predictions, LATERAL jsonb_array_elements(lineup) AS p
+GROUP BY 1 ORDER BY 2 DESC;
+
+-- Serving latency by model build, which is how a retrain gets compared to the one before.
+SELECT model_commit, count(*), round(avg(latency_ms)::numeric, 2) AS avg_ms
+FROM rebound.predictions GROUP BY 1 ORDER BY 2 DESC;
+```
+
 ## 6. nginx
 ```bash
 sudo cp ~/ReboundWebApp/deploy/nginx.conf /etc/nginx/sites-available/postuptothe
@@ -343,10 +436,40 @@ sudo rsync -a --delete site/ /var/www/site/
 sudo rsync -a rebound-app/ /opt/rebound-app/ --exclude venv --exclude models
 sudo systemctl restart rebound
 ```
+> **The pull on its own changes nothing the service sees.** The clone in `~/ReboundWebApp`
+> is a staging copy; the service runs from `/opt/rebound-app` (step 5a) and nginx serves
+> `/var/www/site` (step 4). The `rsync` lines are what actually deploy, and the restart is
+> what picks the backend up. A pull with no rsync leaves the box running exactly what it
+> was running before, with a git tree that says otherwise — which is the confusing version
+> of this mistake rather than the loud one.
+
 Note `--exclude models`: this redeploys the *app*, not the weights, and deliberately will
 not clobber the bundles already on the box. New weights need the step 5b copy-in again —
 and if the retrain moved the feature list, the `rebounding` package must be reinstalled at
 the matching commit too. See "Upgrade the package with the weights, not after".
+
+Two things the block above deliberately does not do, because they are rare and both need
+sudo beyond a restart. Check them against `git log` when you pull:
+
+**If `rebound-app/requirements.txt` changed** — the block excludes `venv`, so a new
+dependency is on the box but not installed:
+```bash
+/opt/rebound-app/venv/bin/pip install -r /opt/rebound-app/requirements.txt
+sudo systemctl restart rebound
+```
+Getting this wrong is quiet by design: a missing `psycopg` degrades prediction logging to
+`"sink": "none"` on `/healthz` with the reason beside it, and predictions carry on.
+
+**If `deploy/rebound.service` changed** — the unit that systemd runs is the copy under
+`/etc/systemd/system`, and nothing above touches it:
+```bash
+sudo cp ~/ReboundWebApp/deploy/rebound.service /etc/systemd/system/rebound.service
+sudo systemctl daemon-reload
+sudo systemctl restart rebound
+```
+Skipping this is quiet too — the service keeps running the previous unit, so a new
+`Environment=` or `EnvironmentFile=` line simply does not exist as far as the process is
+concerned. `systemctl show rebound -p EnvironmentFiles` says what it is actually using.
 
 ### Content updates from your laptop (`scripts/publish.sh`)
 For a **static-content** change (comedy tags/videos, projects, gallery images) you don't
@@ -448,5 +571,19 @@ IP: that must be released explicitly or it keeps billing (~$3.60/mo) while unatt
   network in the master and the sync worker forks without exec, inheriting a thread pool
   whose threads did not survive; `/healthz` still answers because it touches no tensors.
   It must stay `False`. Pinned by `rebound-app/tests/test_deploy_config.py`.
+- **`/healthz` shows `"telemetry": {"sink": "none", …}`** → the `detail` beside it says
+  which of the four reasons it is: no `REBOUND_DATABASE_URL` (the default — the file in 5d
+  is missing or was not picked up by a restart), `REBOUND_TELEMETRY=0`, `psycopg not
+  installed`, or a schema name that is not a valid identifier. None of these affect
+  predictions.
+- **`sink` is `postgres` but `dropped` climbs and `recorded` does not** → the writer thread
+  cannot reach the database or cannot insert; the reason is in `detail` on the same
+  endpoint and in `journalctl -u rebound`. Usually the role lacks `CREATE` on the database
+  (the table is created on first write) or the password in `/etc/rebound/telemetry.env` is
+  wrong. The site is unaffected while you fix it, which is why this needs looking at
+  rather than waiting to be reported.
+- **`recorded` looks low** → it is per worker, and `WEB_CONCURRENCY=2` means two of them.
+  `/healthz` answers from whichever worker took the request, so the counts alternate. The
+  row count in Postgres is the real total.
 - Demo calls `/api/rebound/predict`; nginx strips `/api/rebound/` → gunicorn `/predict`.
   Keep the two in sync if you rename the location.

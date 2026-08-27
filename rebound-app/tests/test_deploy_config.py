@@ -57,3 +57,36 @@ def test_the_systemd_unit_matches_this_config():
     assert "wsgi:app" in unit
     assert "-c gunicorn.conf.py" in unit
     assert "app:app" not in unit.replace("wsgi:app", "")
+
+
+def test_app_logs_are_wired_into_gunicorns_stream(conf):
+    """Without this, everything the app logs below WARNING is silently discarded.
+
+    gunicorn configures `gunicorn.error` and leaves the root logger alone, and nothing
+    else configures it either -- `logging.basicConfig` lives in app.py's `__main__`
+    block, which gunicorn never runs. Measured before the fix: a clean boot printed
+    gunicorn's own lines and the access line, and neither "loaded FinalModel.pkl" nor
+    the telemetry sink line, while warnings arrived through logging's `lastResort`
+    handler with no timestamp, level or logger name. Both are the lines DEPLOY.md's
+    troubleshooting section sends you to `journalctl -u rebound` to read.
+
+    Like the rest of this file, this is the failure the in-process suite cannot see:
+    every other test configures logging itself or does not look.
+    """
+    import logging
+
+    root = logging.getLogger()
+    error_log = logging.getLogger("gunicorn.error")
+    saved = (root.handlers, root.level, error_log.handlers, error_log.level)
+
+    sentinel = logging.StreamHandler()
+    error_log.handlers = [sentinel]
+    error_log.setLevel(logging.INFO)
+    try:
+        conf.post_fork(None, None)
+        assert sentinel in root.handlers, "app logs have nowhere to go"
+        assert root.level == logging.INFO, "root must follow gunicorn's LOG_LEVEL"
+    finally:
+        root.handlers, error_log.handlers = saved[0], saved[2]
+        root.setLevel(saved[1])
+        error_log.setLevel(saved[3])
