@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Elo System — Rohan Vahalia</title>
-  <meta name="description" content="">
+  <meta name="description" content="Elo ratings for fantasy leagues, pulled straight from Fantrax and Sleeper. Seasonal and all-time.">
   <link rel="stylesheet" href="../assets/css/main.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
 </head>
@@ -27,7 +27,7 @@
   <header class="wrap section" style="padding-bottom:1rem">
     <p class="eyebrow">Project · <span class="badge badge--in-flight">In flight</span></p>
     <h1>Elo System</h1>
-    <p class="lead"></p>
+    <p class="lead">Elo ratings for fantasy leagues, pulled straight from Fantrax and Sleeper. Seasonal and all-time.</p>
     <ul class="tags" style="margin-top:1rem"></ul>
     <div class="project-links" style="margin-top:1.4rem">
         <a class="btn btn--ghost" href="https://github.com/riders994/eloSystem" target="_blank" rel="noopener">View on GitHub →</a>
@@ -35,76 +35,17 @@
   </header>
 
   <article class="wrap section prose">
-    <h1 id="elo-system">elo-system</h1>
-    <p>An Elo rating system for fantasy sports leagues. It scrapes weekly scoreboards
-    from a fantasy platform, converts them into per-week Elo ratings, and supports
-    multi-season <strong>dynasty</strong> ratings with an offseason regression-to-mean
-    adjustment.</p>
-    <ul>
-    <li><strong>Platforms:</strong> Fantrax (NBA, head-to-head categories) and Sleeper (NFL,
-      head-to-head points). Sleeper needs its optional extra: <code>pip install -e
-      .[sleeper]</code>.</li>
-    <li><strong>Scoring:</strong> football is rated against the league median by default
-      (<code>scoring: median</code>), so a team's week stands or falls on its own score
-      rather than on who it was scheduled against; <code>scoring: default</code> rates each
-      matchup head to head on the two teams' share of the points instead.</li>
-    <li><strong>Outputs:</strong> per-season and combined-dynasty rating frames, written to CSV or
-      published to a Postgres star schema. Either backend can serve as the reader
-      or the writer, and the two round-trip to the same frames. The schema keeps a
-      person (<code>dim_manager</code>) separate from the accounts they play under
-      (<code>dim_manager_platform</code>), so one manager can be in several leagues, on
-      several Discord servers, across more than one platform.</li>
-    </ul>
-    <h2 id="installation">Installation</h2>
-    <p>The project depends on a fork of <code>fantraxapi</code> (the PyPI release is broken for
-    H2H-rotisserie leagues), so it installs from source rather than from PyPI:</p>
-    <pre><code class="language-bash">python -m venv .venv
-    source .venv/bin/activate
-    pip install -e .            # add [dev] for the test/lint tooling
-    </code></pre>
-    <p><code>requirements.frozen</code> holds the exact, reproducible dependency pins (including
-    the fantraxapi fork commit) used during development.</p>
-    <h2 id="layout">Layout</h2>
-    <pre><code>elo_system/
-      elo_system.py            EloSystem orchestrator (config + reader/writer wiring)
-      tools/
-        elo_league.py          EloLeague: season management + run/dynasty pipeline
-        elo_data.py            EloCSV / EloSQL persistence backends
-        basics/                LeagueBase/DataBase, Elo math, config IO, constants
-        helpers/               scraper, league, formatter, calculator, frame_manager
-    </code></pre>
-    <h2 id="configuration">Configuration</h2>
-    <p><code>resources/configs/</code> holds one shared config for each backend and one <em>ratings</em>
-    config per league:</p>
-    <pre><code>resources/configs/
-      sys_config.yml           reader/writer, and the ratings config of each league
-      csv_config.yml           shared: where CSV frames are written
-      sql_config.yml           shared: the Postgres connection
-      ratings_macho_mandarins.yml  one league
-      ratings_die_nasty.yml      another
-    </code></pre>
-    <p><code>sys_config.yml</code> names the leagues, and one <code>EloSystem</code> drives one of them:</p>
-    <pre><code class="language-yaml">ratings_configs:
-      macho_mandarins: ratings_macho_mandarins.yml
-      die_nasty: ratings_die_nasty.yml
-    default_league: macho_mandarins
-    </code></pre>
-    <pre><code class="language-python">EloSystem('resources/configs/sys_config.yml')                # default_league
-    EloSystem('resources/configs/sys_config.yml', 'die_nasty') # a named league
-    </code></pre>
-    <p>Each league's CSV frames go in their own subdirectory of the CSV config's
-    <code>write_loc</code>, named for the league key, since the frames are named by season
-    alone and would otherwise collide:</p>
-    <pre><code>resources/ratings/
-      macho_mandarins/2024_season_elo.csv  ...  dynasty_elo.csv
-      die_nasty/2022_season_elo.csv  ...  dynasty_elo.csv
-    </code></pre>
-    <p>Override one league's subdirectory with <code>ratings_dir</code> in its ratings config.</p>
-    <h2 id="tests">Tests</h2>
-    <pre><code class="language-bash">python -m pytest          # run from the repo root
-    </code></pre>
-    <p>See <a href="CONTRIBUTING.md">CONTRIBUTING.md</a> for development notes and conventions,
-    and <a href="CHANGELOG.md">CHANGELOG.md</a> for release history.</p>
+    <p>This is the final iteration of an R script I wrote years ago to manually calculate our
+    league's Elo ratings. Now a fully fleshed out Python package, you can connect it to your
+    fantasy league and calculate ratings based on completed matchups. If your league is a dynasty
+    league you can get both the seasonal and all time ratings. You can adjust the K factor or
+    off-season equilibrium rate to fit your league as needed.</p>
+    <h2 id="what-it-supports">What it supports</h2>
+    <p><strong>Platforms</strong> — Fantrax, Sleeper</p>
+    <p><strong>Leagues</strong> — NBA, NFL</p>
+    <p><strong>Formats</strong> — Categories, Points</p>
+    <p>If you have any feature requests, please feel free to
+    <a href="mailto:ruvwebsite@gmail.com">email me here</a>.</p>
   </article>
 
   <footer class="footer">

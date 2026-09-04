@@ -22,7 +22,7 @@
     {
       "slug": "yahoo-scraping-tools",
       "name": "Yahoo Scraping Tools",
-      "blurb": "",
+      "blurb": "A wrapper around Yahoo's fantasy API to make it do what I needed. Superseded by Elo System.",
       "repo": "https://github.com/riders994/YahooScrapingTools",
       "webapp": null,
       "tags": [],
@@ -48,7 +48,7 @@
     {
       "slug": "football-vorp",
       "name": "Football VORPS",
-      "blurb": "",
+      "blurb": "An exploration of fantasy football VORP through the lens of marginal utility. Paused for now.",
       "repo": "https://github.com/riders994/FootballVorps",
       "webapp": null,
       "tags": [],
@@ -61,7 +61,7 @@
     {
       "slug": "nba-schedule",
       "name": "NBA Schedule Fantasy Metrics",
-      "blurb": "",
+      "blurb": "Scoring NBA teams by how much their schedules overlap, so your roster isn't idle on a quiet Tuesday.",
       "repo": "https://github.com/riders994/NBASchedule",
       "webapp": null,
       "tags": [],
@@ -74,7 +74,7 @@
     {
       "slug": "nba-draft-analysis",
       "name": "NBA Draft Class Analysis",
-      "blurb": "",
+      "blurb": "Twenty years of NBA draft classes, analysed for my fantasy league. Early results, more to come.",
       "repo": "https://github.com/riders994/DraftClassAnalysis",
       "webapp": null,
       "tags": [],
@@ -87,7 +87,7 @@
     {
       "slug": "fantasy-lottery",
       "name": "Fantasy Draft Lottery",
-      "blurb": "",
+      "blurb": "A configurable draft lottery runner for fantasy leagues.",
       "repo": "https://github.com/riders994/Fantasy_Draft_Lottery",
       "webapp": null,
       "tags": [],
@@ -100,7 +100,7 @@
     {
       "slug": "pytools",
       "name": "PyTools",
-      "blurb": "",
+      "blurb": "A small grab bag of Python utilities I keep needing \u2014 some SQL helpers and an anonymizer.",
       "repo": "https://github.com/riders994/rv_pytools",
       "webapp": null,
       "tags": [],
@@ -113,7 +113,7 @@
     {
       "slug": "basketball-max-pf",
       "name": "Basketball MaxPF",
-      "blurb": "",
+      "blurb": "Max Points For for fantasy basketball \u2014 the lineup you should have set, scored against the one you did.",
       "repo": "https://github.com/riders994/basketball_max_pf",
       "webapp": null,
       "tags": [],
@@ -126,7 +126,7 @@
     {
       "slug": "elo-system",
       "name": "Elo System",
-      "blurb": "",
+      "blurb": "Elo ratings for fantasy leagues, pulled straight from Fantrax and Sleeper. Seasonal and all-time.",
       "repo": "https://github.com/riders994/eloSystem",
       "webapp": null,
       "tags": [],
@@ -139,7 +139,7 @@
     {
       "slug": "wojbot",
       "name": "WojBot",
-      "blurb": "",
+      "blurb": "A league bot in the spirit of Adrian Wojnarowski: anonymous rumors, Elo ratings, and soon a draft lottery.",
       "repo": "https://github.com/riders994/WojBot",
       "webapp": null,
       "tags": [],

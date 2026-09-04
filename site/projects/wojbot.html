@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WojBot — Rohan Vahalia</title>
-  <meta name="description" content="">
+  <meta name="description" content="A league bot in the spirit of Adrian Wojnarowski: anonymous rumors, Elo ratings, and soon a draft lottery.">
   <link rel="stylesheet" href="../assets/css/main.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
 </head>
@@ -27,7 +27,7 @@
   <header class="wrap section" style="padding-bottom:1rem">
     <p class="eyebrow">Project · <span class="badge badge--in-flight">In flight</span></p>
     <h1>WojBot</h1>
-    <p class="lead"></p>
+    <p class="lead">A league bot in the spirit of Adrian Wojnarowski: anonymous rumors, Elo ratings, and soon a draft lottery.</p>
     <ul class="tags" style="margin-top:1rem"></ul>
     <div class="project-links" style="margin-top:1.4rem">
         <a class="btn btn--ghost" href="https://github.com/riders994/WojBot" target="_blank" rel="noopener">View on GitHub →</a>
@@ -35,46 +35,21 @@
   </header>
 
   <article class="wrap section prose">
-    <h1 id="wojbot">WojBot</h1>
-    <p>A Discord bot for a fantasy basketball league. Slash commands only.</p>
-    <ul>
-    <li><strong>Rumors</strong> — managers file league rumors through a wizard, from the server or
-      from a DM, and the bot posts them to a channel without naming the reporter.</li>
-    <li><strong>Elo</strong> — standings and ratings, backed by the
-      <a href="https://github.com/riders994/eloSystem"><code>elo-system</code></a> package.</li>
-    <li><strong>Commissioner tools</strong> — leagues, seasons, and the warehouse dimension tables.</li>
-    <li><strong>Setup</strong> — per-server configuration with a guided wizard, and three
-      permission tiers on top of it.</li>
-    </ul>
-    <h2 id="getting-started">Getting started</h2>
-    <p><strong><a href="docs/getting-started.md">docs/getting-started.md</a></strong> is the full guide:
-    prerequisites, inviting the bot, setting up a league server, and troubleshooting.</p>
-    <p>The short version, once the bot is running and invited:</p>
-    <pre><code>/setup wizard          → roles, league, rumor channel
-    /commish db migrate    → this server now owns the league in the database
-    /commish db managers   → see who's in it
-    /commish db linkuser   → attach each Discord user to their manager
-    /setup show            → what's still outstanding
-    </code></pre>
-    <p><code>/help</code> says the same things inside Discord.</p>
-    <h2 id="running-it">Running it</h2>
-    <pre><code class="language-bash">cp .env.example .env    # fill in DISCORD_TOKEN and the database settings
-    pip install -e .        # or: pip install -r requirements.lock &amp;&amp; pip install -e . --no-deps
-    wojbot
-    </code></pre>
-    <p>Enable the <strong>Message Content</strong> intent in the Discord Developer Portal — the bot
-    won't start without it.</p>
-    <p>The warehouse schema lives in a separate repo (<code>leagueSQL</code>): <code>sql/ddl/schema.sql</code>
-    first, then <code>sql/ddl/rumors.sql</code> and the <code>sql/dml/insert_*.sql</code> seeds. The bot's
-    own database role only needs DML.</p>
-    <h2 id="layout">Layout</h2>
-    <pre><code>wojbot/cogs/       one cog per command group; discovered and loaded automatically
-    wojbot/core/       config, permissions, database, and the rumor domain rules
-    sql/queries/       named queries, registered at startup
-    resources/         league configs and generated state
-    tests/             pytest; `pip install -e .[dev]` gets the runner
-    requirements.lock  pinned runtime deps for deployments; regenerate with uv
-    </code></pre>
+    <p>In 2018 I made a trade in my fantasy league because a rumor had spread about how one person
+    felt about a player on their team. This, to me, had some verisimilitude with being a real GM
+    and ever since I have felt the need to deepen that experience. One of the principal problems
+    with a long term fantasy league is engagement, and I wanted to create a fun new way for people
+    to engage with their leagues. Enter: WojBot.</p>
+    <p>WojBot is a bot built to honor the great Adrian Wojnarowski. He acts much like a reporter. Any
+    GM can message the bot to leak a rumor to the "public" about something going on behind the
+    scenes. If a person wants to trade a player, they could leak that the player requested a trade
+    as a more humorous signal that they need to make changes. It adds another layer of engagement
+    and lets people keep track of the league in new ways.</p>
+    <p>There's some other joke functionality in there, but it is able to calculate Elo ratings for
+    basketball and football leagues. By next February I'll be able to have it run a draft lottery.</p>
+    <p>If you have any ideas for features, please let me know!
+    <a href="mailto:ruvwebsite@gmail.com?subject=WojBot%20Improvements">Email me here</a> with the subject
+    line <code>WojBot Improvements</code>.</p>
   </article>
 
   <footer class="footer">

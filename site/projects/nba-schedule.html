@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NBA Schedule Fantasy Metrics — Rohan Vahalia</title>
-  <meta name="description" content="">
+  <meta name="description" content="Scoring NBA teams by how much their schedules overlap, so your roster isn&#x27;t idle on a quiet Tuesday.">
   <link rel="stylesheet" href="../assets/css/main.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
 </head>
@@ -27,7 +27,7 @@
   <header class="wrap section" style="padding-bottom:1rem">
     <p class="eyebrow">Project · <span class="badge badge--completed">Completed</span></p>
     <h1>NBA Schedule Fantasy Metrics</h1>
-    <p class="lead"></p>
+    <p class="lead">Scoring NBA teams by how much their schedules overlap, so your roster isn&#x27;t idle on a quiet Tuesday.</p>
     <ul class="tags" style="margin-top:1rem"></ul>
     <div class="project-links" style="margin-top:1.4rem">
         <a class="btn btn--ghost" href="https://github.com/riders994/NBASchedule" target="_blank" rel="noopener">View on GitHub →</a>
@@ -35,18 +35,31 @@
   </header>
 
   <article class="wrap section prose">
-    <h1 id="nba-schedule-scraper">NBA Schedule Scraper</h1>
-    <p>This is a project I made to scrape the NBA schedule and provide some metrics about it. I am currently looking to improve these metrics, and any contributions and advice are welcome.</p>
-    <p>The R version of this project is currently defunct. I will eventually revive it.</p>
-    <h2 id="getting-started">Getting Started</h2>
-    <p>All of the requirements are in the <code>requirements.frozen</code> file. You can install them by running <code>pip install -r requirements.frozen</code> in the command line.</p>
-    <h2 id="executing">Executing</h2>
-    <p>The script doesn't require much. It just dumps the two files in the working directory. Simply run <code>python3 espnscraper.py</code>. It should go through pretty quickly.</p>
-    <h2 id="tech">Tech</h2>
-    <p>I use Selenium, with a Firefox driver to scrape ESPN's site. The site used to use basic HTML tables, that's why I had the R script which was muuuch faster.</p>
-    <p>It goes through every team's page since each of them are formulaicly laid out. I then use numpy to process the data, and pandas to export everything.</p>
-    <p>TODO: Change line 34 to a try-catch in case they change the site again
-    TODO: Add pathspecs</p>
+    <p>I started playing fantasy basketball in the 13-14 season and I was not very good. The next
+    season I developed my first data-driven approach to fantasy sports. I noticed that there were
+    certain days of the week with more games on them (wednesday, friday) and certain days with
+    fewer games (tuesday, thursday). This is a quirk of the national TV schedule, which means that
+    the teams that tend to play more on those days are not random. By identifying which teams were
+    more likely to play on the same nights as other teams, you'd be able to reduce how many times
+    per season your roster had an excess of players who couldn't play. Halfway through that
+    season, I looked at the schedules of a few teams and made a determination to trade players who
+    I thought were over-valued because of their schedule for players that were under-valued for
+    their schedule. I ended up missing the finals because of a single Paul George heat check in
+    his return from injury game.</p>
+    <p>I have a rule with fantasy sports. If I don't think the dumbest person in my league is capable
+    of coming up with and executing an analysis, I share it with everyone because otherwise it
+    feels like cheating. While anyone could do what I had done the season before, I spent the
+    summer trying to turn it into a usable metric. I used normalization to come up with a score I
+    thought was useful. Although it's hard to judge the actual tangible success of something like
+    this, we did have a team draft according to that strategy, never set their lineup (so their
+    starters were by default the 9 best players on the team), and proceed to make the playoffs. To
+    me, that shows there was some value.</p>
+    <p>A couple years later I added a matrix that compares teams to each other. The idea behind this
+    is that your depth players shouldn't conflict with your headliners. If I draft a player in the
+    first few rounds, I don't want the other players on my team at that position to all play the
+    same schedule.</p>
+    <p>The efficacy of this strategy obviously needs more rigorous testing, but I think it's a
+    reasonable way to think about the problem of roster optimization post draft.</p>
   </article>
 
   <footer class="footer">
