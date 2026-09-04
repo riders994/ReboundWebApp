@@ -267,7 +267,8 @@
   // --- Projects carousel -----------------------------------------------------
   // Selection + card markup mirror assets/js/projects.js so the Resume carousel and the
   // Projects page agree on what "featured" means; paths are configurable via data- attrs
-  // because this runs off the projects/ directory.
+  // because this runs off the projects/ directory. Both also share the default-cover
+  // deal in assets/js/thumbs.js, so a project keeps the same cover on either page.
   var FEATURED_LIMIT = 5;
 
   function initProjectCarousel(el) {
@@ -309,9 +310,14 @@
       return;
     }
 
+    // Default covers for the items with no thumb of their own, spread across the track.
+    var thumbs = window.CardThumbs
+      ? window.CardThumbs.prepare(items.map(function (p) { return p.slug || ''; }), thumbBase)
+      : null;
+
     var track = document.createElement('div');
     track.className = 'carousel__track';
-    items.forEach(function (p) { track.appendChild(projectCard(p, featured[p.slug], pageBase, thumbBase)); });
+    items.forEach(function (p) { track.appendChild(projectCard(p, featured[p.slug], pageBase, thumbBase, thumbs)); });
 
     var prev = carouselArrow('‹', 'prev');
     var next = carouselArrow('›', 'next');
@@ -347,7 +353,7 @@
     return b;
   }
 
-  function projectCard(p, isFeatured, pageBase, thumbBase) {
+  function projectCard(p, isFeatured, pageBase, thumbBase, thumbs) {
     var a = document.createElement('a');
     a.className = 'card';
     a.href = pageBase + (p.slug || '') + '.html';
@@ -357,7 +363,11 @@
     thumb.alt = p.name || '';
     thumb.loading = 'lazy';
     thumb.src = thumbBase + p.slug + '-thumb.png';
-    thumb.onerror = function () { thumb.style.background = 'var(--bg-soft)'; thumb.removeAttribute('src'); };
+    thumb.onerror = function () {
+      thumb.onerror = null;
+      if (thumbs) thumbs.apply(thumb, p.slug || '');
+      else { thumb.style.background = 'var(--bg-soft)'; thumb.removeAttribute('src'); }
+    };
     a.appendChild(thumb);
 
     var body = document.createElement('div');

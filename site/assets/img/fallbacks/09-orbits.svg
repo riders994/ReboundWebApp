@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" role="img" aria-hidden="true">
+  <style>
+    .bg { fill: #ece3f7; }
+    .ink { fill: #6d57bd; stroke: #6d57bd; }
+    .ink2 { fill: #9b86d9; stroke: #9b86d9; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #201a2b; }
+      .ink { fill: #b0a0e6; stroke: #b0a0e6; }
+      .ink2 { fill: #7b6bb0; stroke: #7b6bb0; }
+    }
+    [fill=none] { fill: none; }
+  </style>
+  <rect class="bg" width="640" height="400"/>
+  <circle cx="301" cy="205" r="73" class="ink2" opacity=".22"/>
+  <circle cx="465" cy="295" r="79" class="ink" opacity=".22"/>
+  <circle cx="152" cy="84" r="62" class="ink2" opacity=".22"/>
+  <circle cx="471" cy="331" r="97" class="ink" opacity=".22"/>
+  <circle cx="120" cy="163" r="126" class="ink2" opacity=".22"/>
+  <circle cx="428" cy="191" r="82" class="ink" opacity=".22"/>
+  <circle cx="168" cy="184" r="87" class="ink2" opacity=".22"/>
+</svg>

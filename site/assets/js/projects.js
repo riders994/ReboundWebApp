@@ -8,8 +8,11 @@
 // can't take up a featured slot. scripts/projects.py does the same, in the same order.
 (function () {
   var DATA_URL = '../assets/data/projects.json';
+  var IMG_BASE = '../assets/img/';
   var PAGE_SIZE = 6;
   var FEATURED_LIMIT = 5;
+
+  var thumbs = null;   // default-cover assignment for this render; see assets/js/thumbs.js
 
   var highlightEl = document.getElementById('project-highlight');
   var completedEl = document.getElementById('project-completed');
@@ -22,6 +25,8 @@
     .catch(function () { highlightEl.innerHTML = '<p class="muted">Couldn’t load projects.</p>'; });
 
   function notDraft(p) { return !p.draft; }
+
+  function slugOf(p) { return p.slug || ''; }
 
   function featuredSet(projects) {
     var dated = projects.filter(function (p) { return p.featured_at; });
@@ -43,6 +48,19 @@
         return fa < fb ? 1 : fa > fb ? -1 : 0;
       });
 
+    // Completed list: completed and not already in the highlight, newest first.
+    var inHighlight = {};
+    highlight.forEach(function (p) { inHighlight[p.slug] = true; });
+    var completed = projects
+      .filter(function (p) { return p.status === 'completed' && !inHighlight[p.slug]; })
+      .sort(function (a, b) { return (a.completed_at || '') < (b.completed_at || '') ? 1 : -1; });
+
+    // Deal default covers over both lists at once, before either is drawn, so the
+    // highlight and the first completed page never land on the same image.
+    thumbs = window.CardThumbs
+      ? window.CardThumbs.prepare(highlight.concat(completed).map(slugOf), IMG_BASE)
+      : null;
+
     highlightEl.innerHTML = '';
     if (highlight.length === 0) {
       highlightEl.innerHTML = '<p class="muted">No featured or in-flight projects yet.</p>';
@@ -52,13 +70,6 @@
       highlight.forEach(function (p) { hg.appendChild(card(p, featured[p.slug])); });
       highlightEl.appendChild(hg);
     }
-
-    // Completed list: completed and not already in the highlight, newest first.
-    var inHighlight = {};
-    highlight.forEach(function (p) { inHighlight[p.slug] = true; });
-    var completed = projects
-      .filter(function (p) { return p.status === 'completed' && !inHighlight[p.slug]; })
-      .sort(function (a, b) { return (a.completed_at || '') < (b.completed_at || '') ? 1 : -1; });
 
     var page = 0;
     var pages = Math.max(1, Math.ceil(completed.length / PAGE_SIZE));
@@ -108,8 +119,12 @@
     thumb.className = 'card__thumb';
     thumb.alt = p.name || '';
     thumb.loading = 'lazy';
-    thumb.src = '../assets/img/' + p.slug + '-thumb.png';
-    thumb.onerror = function () { thumb.style.background = 'var(--bg-soft)'; thumb.removeAttribute('src'); };
+    thumb.src = IMG_BASE + p.slug + '-thumb.png';
+    thumb.onerror = function () {
+      thumb.onerror = null;
+      if (thumbs) thumbs.apply(thumb, slugOf(p));
+      else { thumb.style.background = 'var(--bg-soft)'; thumb.removeAttribute('src'); }
+    };
     a.appendChild(thumb);
 
     var body = document.createElement('div');

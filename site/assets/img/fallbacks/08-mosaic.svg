@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" role="img" aria-hidden="true">
+  <style>
+    .bg { fill: #ece3f7; }
+    .ink { fill: #6d57bd; stroke: #6d57bd; }
+    .ink2 { fill: #9b86d9; stroke: #9b86d9; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #201a2b; }
+      .ink { fill: #b0a0e6; stroke: #b0a0e6; }
+      .ink2 { fill: #7b6bb0; stroke: #7b6bb0; }
+    }
+    [fill=none] { fill: none; }
+  </style>
+  <rect class="bg" width="640" height="400"/>
+  <rect x="6" y="6" width="68" height="68" rx="8" class="ink" opacity="0.40"/>
+  <rect x="86" y="6" width="68" height="68" rx="8" class="ink2" opacity="0.31"/>
+  <rect x="166" y="6" width="68" height="68" rx="8" class="ink" opacity="0.45"/>
+  <rect x="246" y="6" width="68" height="68" rx="8" class="ink2" opacity="0.32"/>
+  <rect x="326" y="6" width="68" height="68" rx="8" class="ink" opacity="0.19"/>
+  <rect x="406" y="6" width="68" height="68" rx="8" class="ink" opacity="0.25"/>
+  <rect x="486" y="6" width="68" height="68" rx="8" class="ink2" opacity="0.11"/>
+  <rect x="566" y="6" width="68" height="68" rx="8" class="ink2" opacity="0.19"/>
+  <rect x="6" y="86" width="68" height="68" rx="8" class="ink" opacity="0.10"/>
+  <rect x="86" y="86" width="68" height="68" rx="8" class="ink2" opacity="0.43"/>
+  <rect x="166" y="86" width="68" height="68" rx="8" class="ink2" opacity="0.37"/>
+  <rect x="246" y="86" width="68" height="68" rx="8" class="ink" opacity="0.23"/>
+  <rect x="326" y="86" width="68" height="68" rx="8" class="ink" opacity="0.13"/>
+  <rect x="406" y="86" width="68" height="68" rx="8" class="ink2" opacity="0.25"/>
+  <rect x="486" y="86" width="68" height="68" rx="8" class="ink" opacity="0.46"/>
+  <rect x="566" y="86" width="68" height="68" rx="8" class="ink" opacity="0.52"/>
+  <rect x="6" y="166" width="68" height="68" rx="8" class="ink" opacity="0.34"/>
+  <rect x="86" y="166" width="68" height="68" rx="8" class="ink" opacity="0.31"/>
+  <rect x="166" y="166" width="68" height="68" rx="8" class="ink" opacity="0.10"/>
+  <rect x="246" y="166" width="68" height="68" rx="8" class="ink2" opacity="0.19"/>
+  <rect x="326" y="166" width="68" height="68" rx="8" class="ink2" opacity="0.18"/>
+  <rect x="406" y="166" width="68" height="68" rx="8" class="ink2" opacity="0.50"/>
+  <rect x="486" y="166" width="68" height="68" rx="8" class="ink2" opacity="0.44"/>
+  <rect x="566" y="166" width="68" height="68" rx="8" class="ink2" opacity="0.42"/>
+  <rect x="6" y="246" width="68" height="68" rx="8" class="ink" opacity="0.30"/>
+  <rect x="86" y="246" width="68" height="68" rx="8" class="ink2" opacity="0.17"/>
+  <rect x="166" y="246" width="68" height="68" rx="8" class="ink2" opacity="0.50"/>
+  <rect x="246" y="246" width="68" height="68" rx="8" class="ink" opacity="0.25"/>
+  <rect x="326" y="246" width="68" height="68" rx="8" class="ink" opacity="0.26"/>
+  <rect x="406" y="246" width="68" height="68" rx="8" class="ink2" opacity="0.26"/>
+  <rect x="486" y="246" width="68" height="68" rx="8" class="ink" opacity="0.12"/>
+  <rect x="566" y="246" width="68" height="68" rx="8" class="ink2" opacity="0.55"/>
+  <rect x="6" y="326" width="68" height="68" rx="8" class="ink" opacity="0.31"/>
+  <rect x="86" y="326" width="68" height="68" rx="8" class="ink2" opacity="0.43"/>
+  <rect x="166" y="326" width="68" height="68" rx="8" class="ink" opacity="0.37"/>
+  <rect x="246" y="326" width="68" height="68" rx="8" class="ink2" opacity="0.37"/>
+  <rect x="326" y="326" width="68" height="68" rx="8" class="ink" opacity="0.16"/>
+  <rect x="406" y="326" width="68" height="68" rx="8" class="ink" opacity="0.52"/>
+  <rect x="486" y="326" width="68" height="68" rx="8" class="ink" opacity="0.36"/>
+  <rect x="566" y="326" width="68" height="68" rx="8" class="ink" opacity="0.13"/>
+</svg>

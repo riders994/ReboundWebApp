@@ -2,9 +2,10 @@
 
 ## Photo feeds
 
-A **feed** is a set of photos the site shows (the headshot slideshow today; vacation, cat,
-etc. later). Feeds are declared in [`feeds.json`](feeds.json) and turned into a
-`manifest.json` per feed by [`gen-manifests.py`](gen-manifests.py), which the front-end reads.
+A **feed** is a set of photos the site shows — today the headshot slideshow and the default
+card covers (`fallbacks`); vacation, cat, etc. later. Feeds are declared in
+[`feeds.json`](feeds.json) and turned into a `manifest.json` per feed by
+[`gen-manifests.py`](gen-manifests.py), which the front-end reads.
 
 `scripts/serve.sh` and the deploy steps run the generator automatically, or run it by hand:
 
@@ -26,7 +27,7 @@ Each feed is an object in the `feeds` array:
 | `prefix`    | s3         | key prefix to list (e.g. `"vacation/"`)                            |
 | `base_url`  | s3         | public URL base; defaults to `https://<bucket>.s3.amazonaws.com/` (use your CloudFront domain if you have one) |
 
-### `local` feeds (current headshots flow)
+### `local` feeds (the headshots and fallbacks flow)
 
 Images live in the repo under `dir`; the manifest lists **filenames** and the page prepends
 `dir`. Drop images in the folder, run the generator, commit. No dependencies.
