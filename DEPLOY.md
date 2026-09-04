@@ -185,6 +185,64 @@ misconfigured one.
 | A     | *(blank)*   | `<ELASTIC_IP>`     |
 | CNAME | `www`       | `postuptothe.net`  |
 
+> **Only the site's own records belong on the apex and `www`.** Mail, domain verification and
+> anything else that wants a `TXT`/`MX` goes on its own subdomain — see "Mail records
+> (Mailgun)". Adding a record to `www` is fine; *replacing* its address record is not.
+
+
+## Mail records (Mailgun)
+
+Not part of the deploy path — skip this if you are not sending mail. It is documented here
+because these records live in the **same hosted zone** as the site's, and the shortcut that
+looks obvious breaks the site.
+
+Mailgun needs a **sending domain**. Use a dedicated subdomain — `mg.postuptothe.net` — not the
+apex, and emphatically not `www`.
+
+| Type  | Record name | Value |
+|-------|-------------|-------|
+| TXT   | `mg` | `v=spf1 include:mailgun.org ~all` |
+| TXT   | `mx._domainkey.mg` | the DKIM public key, from the Mailgun dashboard |
+| MX    | `mg` | `10 mxa.mailgun.org` **and** `10 mxb.mailgun.org` |
+| CNAME | `email.mg` | `mailgun.org` |
+
+The DKIM selector and key are generated per domain — copy both out of Mailgun rather than
+guessing them. For this zone Mailgun issued the selector `mx`, so the record name is
+`mx._domainkey.mg.postuptothe.net`; a re-created sending domain may get a different one.
+Both MX values belong in **one** record, one per line in Route 53's value box, not two
+separate records — **`mxb` is as required as `mxa`**, and Mailgun leaves the domain
+unverified until both are present. The `email.mg` CNAME only powers open/click tracking;
+omit it and Mailgun still verifies the domain.
+
+Why a subdomain rather than the apex:
+
+- **Reputation isolation.** The app's mail is scored against `mg.postuptothe.net`. If it ever
+  gets spam-flagged, that does not follow mail you send from the bare domain later.
+- **No collision with the website.** Mailgun wants MX records. On `mg` they are free; on the
+  apex they would fight with anything else that receives mail for the domain.
+- **`www` stays a website name**, which is the only thing it should ever be.
+
+> **Do not repurpose `www` for this.** Replacing its address record with an SPF `TXT` takes
+> the name off the air *and* does not configure mail: SPF alone authorizes nothing without
+> DKIM and MX, and it would be authorizing a sending domain of `www.postuptothe.net`, which
+> nothing sends as. The failure is quiet — `dig` returns `NOERROR` with no answer rather than
+> `NXDOMAIN`, the apex keeps serving, and the real damage shows up weeks later when certbot
+> cannot renew. See "Renewal depends on `www` resolving" under Tearing down.
+
+Verify once the records are in (TTL 300, so a minute or two):
+```bash
+dig +short TXT mg.postuptothe.net                       # the v=spf1 string
+dig +short MX  mg.postuptothe.net                       # BOTH mxa and mxb, priority 10
+dig +short TXT mx._domainkey.mg.postuptothe.net         # the DKIM key
+dig +short CNAME email.mg.postuptothe.net               # mailgun.org, if tracking is on
+```
+
+> **On Mailgun's "sign in with AWS" button.** The integration writes these records for you,
+> but it needs broad write access to the entire hosted zone — the same zone holding the
+> records that keep this site up — and it can put them on the wrong name. For five records
+> you create once, the manual path is the lower-risk one. If you do use it, revoke the
+> Route 53 permissions afterwards.
+
 ## 2. Install packages
 ```bash
 sudo apt update
@@ -547,6 +605,35 @@ at an address you no longer control for as long as the rebuild takes.
 
 Terminating an instance releases its *automatic* public IP but **not** an associated Elastic
 IP: that must be released explicitly or it keeps billing (~$3.60/mo) while unattached.
+
+### Renewal depends on `www` resolving
+The certificate issued in step 7 covers **both** names, and certbot renews it as a single
+unit: every SAN is re-authorized over HTTP-01 on each attempt. So `www` is not a one-time
+requirement at issuance — it has to keep resolving for the life of the deployment. If it
+stops, the renewal for the *whole* certificate aborts and the apex expires with it.
+
+Nothing warns you. The certbot timer runs twice daily and starts renewing at 30 days
+remaining, so a `www` record broken in, say, month one fails silently for a month before the
+site goes to a browser interstitial. Check the pair whenever you touch the zone:
+
+```bash
+dig +short postuptothe.net www.postuptothe.net   # both must resolve to the current Elastic IP
+                                                 # (www prints `postuptothe.net.` first — it
+                                                 #  is a CNAME; the address below it is what
+                                                 #  matters)
+sudo certbot renew --dry-run                     # exercises the real authorizations
+openssl s_client -connect postuptothe.net:443 -servername postuptothe.net </dev/null 2>/dev/null \
+  | openssl x509 -noout -dates -ext subjectAltName
+```
+
+`certbot renew --dry-run` is the honest check — it performs the same authorizations against
+Let's Encrypt's staging endpoint, so a missing `www` fails there exactly as it would for
+real, without burning rate limit. After fixing DNS, force the cert back into a good state
+with `sudo certbot renew --force-renewal` rather than waiting for the timer.
+
+The two ways `www` goes missing are a rebuild that repoints the apex and forgets the second
+record, and a zone edit that overwrites `www` with something that is not an address — see the
+callout in "Mail records (Mailgun)".
 
 ## Troubleshooting
 - `journalctl -u rebound -e` — backend logs (model load warnings, prediction errors).
