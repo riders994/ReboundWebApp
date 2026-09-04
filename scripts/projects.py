@@ -16,10 +16,18 @@ Usage:
   projects.py feature   <slug>            # designate featured (stamps today's date)
   projects.py unfeature <slug>
   projects.py status    <slug> completed  # completing sets completed_at = repo's latest commit date
+  projects.py draft     <slug>            # hold back: delist and remove the detail page
+  projects.py publish   <slug>            # undo a draft
   projects.py list
   projects.py render                      # fetch READMEs / overrides -> generate detail pages
 
 "featured" = the 5 projects most recently designated (by their featured date).
+
+A project with "draft": true is held back rather than deleted. It keeps its entry, its
+override and its git history, but it is filtered out of the projects index and the resume
+carousel, and `render` deletes its detail page instead of building one. Flip it back with
+`publish` to restore the page. This is the way to take something off the site — removing
+the entry outright loses the metadata and leaves a stale page behind.
 """
 import argparse
 import html
@@ -59,10 +67,12 @@ def cmd_add(args):
         "completed_at": completed_at,
         "page": args.page,
         "readme_branch": args.branch,
+        "draft": args.draft,
     }
     projects.append(project)
     pd.save_projects(projects)
-    print(f"added {args.slug} [{args.status}, page={args.page}]{note}")
+    draft = ", draft" if args.draft else ""
+    print(f"added {args.slug} [{args.status}, page={args.page}{draft}]{note}")
 
 
 def _get(projects, slug):
@@ -97,6 +107,33 @@ def cmd_unfeature(args):
     print(f"unfeatured {args.slug}")
 
 
+def _set_draft(slug, value):
+    projects = pd.load_projects()
+    p = projects[_get(projects, slug)]
+    p["draft"] = value
+    pd.save_projects(projects)
+    return p
+
+
+def cmd_draft(args):
+    _set_draft(args.slug, True)
+    # Take the built page down in the same breath. Leaving it on disk would keep it
+    # reachable by direct URL and would republish it on the next rsync, which is not
+    # what "held back" means to anyone.
+    page = pd.DETAIL_DIR / f"{args.slug}.html"
+    removed = ""
+    if page.exists():
+        page.unlink()
+        removed = f" (removed {page.relative_to(pd.ROOT)})"
+    print(f"{args.slug} -> draft{removed}")
+
+
+def cmd_publish(args):
+    p = _set_draft(args.slug, False)
+    note = "" if p.get("page") == "custom" else " — run `render` to rebuild its page"
+    print(f"{args.slug} -> published{note}")
+
+
 def cmd_status(args):
     if args.value not in ("in-flight", "completed"):
         sys.exit("status must be 'in-flight' or 'completed'")
@@ -119,6 +156,8 @@ def cmd_list(args):
     featured = pd.featured_slugs(projects)
     for p in projects:
         marks = []
+        if pd.is_draft(p):
+            marks.append("draft")
         if p["slug"] in featured:
             marks.append("★featured")
         marks.append(p["status"])
@@ -245,7 +284,18 @@ def _detail_html(project, body):
 
 def cmd_render(args):
     projects = pd.load_projects()
-    generated = [p for p in projects if p.get("page", "generated") == "generated"]
+
+    # A draft may have been built before it was held back, and `render` is what runs on
+    # every publish -- so this is the place that guarantees the page is gone, not just
+    # the moment `draft` was invoked.
+    for p in projects:
+        if pd.is_draft(p):
+            stale = pd.DETAIL_DIR / f"{p['slug']}.html"
+            if stale.exists():
+                stale.unlink()
+                print(f"{p['slug']}: removed {stale.relative_to(pd.ROOT)} (draft)")
+
+    generated = [p for p in pd.published(projects) if p.get("page", "generated") == "generated"]
     if not generated:
         print("no 'generated' projects to render (custom pages are hand-authored)")
         return
@@ -278,6 +328,7 @@ def main():
     a.add_argument("--status", default="in-flight", help="in-flight | completed")
     a.add_argument("--page", default="generated", help="generated | custom")
     a.add_argument("--branch", default=None, help="README branch override")
+    a.add_argument("--draft", action="store_true", help="add it held back (delisted, no page)")
     a.set_defaults(func=cmd_add)
 
     f = sub.add_parser("feature", help="designate a project featured (stamps today)")
@@ -287,6 +338,14 @@ def main():
     uf = sub.add_parser("unfeature", help="remove the featured designation")
     uf.add_argument("slug")
     uf.set_defaults(func=cmd_unfeature)
+
+    dr = sub.add_parser("draft", help="hold a project back: delist it and remove its page")
+    dr.add_argument("slug")
+    dr.set_defaults(func=cmd_draft)
+
+    pb = sub.add_parser("publish", help="undo a draft")
+    pb.add_argument("slug")
+    pb.set_defaults(func=cmd_publish)
 
     st = sub.add_parser("status", help="set a project's status")
     st.add_argument("slug")

@@ -4,6 +4,8 @@
 //   - a highlight of featured + in-flight projects
 //   - a paginated list of completed projects, newest first
 // "featured" = the 5 projects with the most recent featured_at date (same rule as the CLI).
+// Projects flagged "draft" are dropped before anything else runs, so a held-back project
+// can't take up a featured slot. scripts/projects.py does the same, in the same order.
 (function () {
   var DATA_URL = '../assets/data/projects.json';
   var PAGE_SIZE = 6;
@@ -16,8 +18,10 @@
 
   fetch(DATA_URL)
     .then(function (r) { return r.ok ? r.json() : { projects: [] }; })
-    .then(function (data) { render(data.projects || []); })
+    .then(function (data) { render((data.projects || []).filter(notDraft)); })
     .catch(function () { highlightEl.innerHTML = '<p class="muted">Couldn’t load projects.</p>'; });
+
+  function notDraft(p) { return !p.draft; }
 
   function featuredSet(projects) {
     var dated = projects.filter(function (p) { return p.featured_at; });

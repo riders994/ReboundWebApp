@@ -17,7 +17,8 @@
       "featured_at": "2026-08-21",
       "completed_at": "2026-08-21",
       "page": "custom",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "yahoo-scraping-tools",
@@ -30,7 +31,8 @@
       "featured_at": null,
       "completed_at": "2026-08-10",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": true
     },
     {
       "slug": "position-predictor",
@@ -43,7 +45,8 @@
       "featured_at": "2026-08-21",
       "completed_at": "2026-08-19",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "football-vorp",
@@ -56,7 +59,8 @@
       "featured_at": null,
       "completed_at": "2025-03-17",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "nba-schedule",
@@ -69,7 +73,8 @@
       "featured_at": null,
       "completed_at": "2021-10-02",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "nba-draft-analysis",
@@ -82,7 +87,8 @@
       "featured_at": null,
       "completed_at": "2026-04-19",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "fantasy-lottery",
@@ -95,7 +101,8 @@
       "featured_at": null,
       "completed_at": "2026-07-09",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "pytools",
@@ -108,7 +115,8 @@
       "featured_at": null,
       "completed_at": null,
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "basketball-max-pf",
@@ -121,7 +129,8 @@
       "featured_at": "2026-08-21",
       "completed_at": null,
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "elo-system",
@@ -134,7 +143,8 @@
       "featured_at": "2026-08-21",
       "completed_at": null,
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "wojbot",
@@ -147,7 +157,8 @@
       "featured_at": "2026-08-21",
       "completed_at": null,
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     }
   ]
 }

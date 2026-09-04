@@ -48,9 +48,23 @@ def parse_repo(url):
     return (m.group(1), m.group(2)) if m else (None, None)
 
 
+def is_draft(project):
+    """Draft projects are held back: not listed anywhere, and no detail page is built."""
+    return bool(project.get("draft"))
+
+
+def published(projects):
+    """Everything except drafts — what the site is allowed to show."""
+    return [p for p in projects if not is_draft(p)]
+
+
 def featured_slugs(projects, limit=FEATURED_LIMIT):
-    """The `limit` projects most recently designated featured (by featured_at date)."""
-    dated = [p for p in projects if p.get("featured_at")]
+    """The `limit` projects most recently designated featured (by featured_at date).
+
+    Drafts are excluded first, so a held-back project cannot sit on a featured slot
+    and quietly shrink the highlight row. The JS does the same, in the same order.
+    """
+    dated = [p for p in published(projects) if p.get("featured_at")]
     dated.sort(key=lambda p: p["featured_at"], reverse=True)
     return {p["slug"] for p in dated[:limit]}
 

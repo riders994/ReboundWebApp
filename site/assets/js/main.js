@@ -276,7 +276,11 @@
     var thumbBase = el.getAttribute('data-project-thumb-base') || '';
     fetch(dataUrl)
       .then(function (r) { return r.ok ? r.json() : { projects: [] }; })
-      .then(function (data) { renderProjectCarousel(el, data.projects || [], pageBase, thumbBase); })
+      .then(function (data) {
+        // Drop drafts before rendering, matching projects.js and scripts/projects.py.
+        var live = (data.projects || []).filter(function (p) { return !p.draft; });
+        renderProjectCarousel(el, live, pageBase, thumbBase);
+      })
       .catch(function () { el.innerHTML = '<p class="muted">Couldn’t load projects.</p>'; });
   }
 

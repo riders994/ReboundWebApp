@@ -106,13 +106,25 @@ it by dropping `content/projects/<slug>.md` in THIS repo. Projects marked `"page
 
 ```bash
 python3 scripts/projects.py add <slug> --name "..." --repo <url> [--blurb ..] [--tags a b] \
-        [--webapp <url>] [--status in-flight|completed] [--page generated|custom]
+        [--webapp <url>] [--status in-flight|completed] [--page generated|custom] [--draft]
 python3 scripts/projects.py feature   <slug>          # designate featured (stamps today)
 python3 scripts/projects.py unfeature <slug>
 python3 scripts/projects.py status    <slug> completed
+python3 scripts/projects.py draft     <slug>          # hold back: delist + remove the page
+python3 scripts/projects.py publish   <slug>          # undo a draft
 python3 scripts/projects.py list
 python3 scripts/projects.py render                    # READMEs/overrides -> detail pages
 ```
+
+**Taking a project off the site** — set `"draft": true` (via `projects.py draft <slug>`)
+rather than deleting its entry. A draft keeps its metadata and its
+`content/projects/<slug>.md` override, but is filtered out of the projects index *and* the
+resume carousel, and `render` deletes its detail page instead of building one. `publish`
+puts it back, and the next `render` rebuilds the page from the override that was never lost.
+
+Drafts are dropped *before* the featured-5 is computed, in the CLI and in both JS consumers
+(`projects.js`, `main.js`) — otherwise a held-back project would sit on a featured slot and
+silently shrink the highlight row.
 
 `render` needs `markdown` (`pip install -r scripts/requirements.txt`). `serve.sh` and the
 deploy steps run it automatically.
