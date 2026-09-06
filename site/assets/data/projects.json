@@ -17,20 +17,27 @@
       "featured_at": "2026-08-21",
       "completed_at": "2026-08-21",
       "page": "custom",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "yahoo-scraping-tools",
       "name": "Yahoo Scraping Tools",
-      "blurb": "",
+      "blurb": "A wrapper around Yahoo's fantasy API to make it do what I needed. Superseded by Elo System.",
       "repo": "https://github.com/riders994/YahooScrapingTools",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "Yahoo Fantasy API",
+        "OAuth",
+        "requests"
+      ],
       "status": "completed",
       "featured_at": null,
       "completed_at": "2026-08-10",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": true
     },
     {
       "slug": "position-predictor",
@@ -38,116 +45,174 @@
       "blurb": "",
       "repo": "https://github.com/riders994/position_predictor",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "scikit-learn",
+        "LightGBM",
+        "XGBoost",
+        "nba_api"
+      ],
       "status": "completed",
       "featured_at": "2026-08-21",
       "completed_at": "2026-08-19",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "football-vorp",
       "name": "Football VORPS",
-      "blurb": "",
+      "blurb": "An exploration of fantasy football VORP through the lens of marginal utility. Paused for now.",
       "repo": "https://github.com/riders994/FootballVorps",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "pandas",
+        "nfl_data_py"
+      ],
       "status": "completed",
       "featured_at": null,
       "completed_at": "2025-03-17",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "nba-schedule",
       "name": "NBA Schedule Fantasy Metrics",
-      "blurb": "",
+      "blurb": "Scoring NBA teams by how much their schedules overlap, so your roster isn't idle on a quiet Tuesday.",
       "repo": "https://github.com/riders994/NBASchedule",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "R",
+        "Selenium",
+        "sportsipy",
+        "pandas"
+      ],
       "status": "completed",
       "featured_at": null,
       "completed_at": "2021-10-02",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "nba-draft-analysis",
       "name": "NBA Draft Class Analysis",
-      "blurb": "",
+      "blurb": "Twenty years of NBA draft classes, analysed for my fantasy league. Early results, more to come.",
       "repo": "https://github.com/riders994/DraftClassAnalysis",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "Jupyter",
+        "pandas",
+        "scikit-learn",
+        "statsmodels"
+      ],
       "status": "completed",
       "featured_at": null,
       "completed_at": "2026-04-19",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "fantasy-lottery",
       "name": "Fantasy Draft Lottery",
-      "blurb": "",
+      "blurb": "A configurable draft lottery runner for fantasy leagues.",
       "repo": "https://github.com/riders994/Fantasy_Draft_Lottery",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "NumPy",
+        "pytest"
+      ],
       "status": "completed",
       "featured_at": null,
       "completed_at": "2026-07-09",
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "pytools",
       "name": "PyTools",
-      "blurb": "",
+      "blurb": "A small grab bag of Python utilities I keep needing \u2014 some SQL helpers and an anonymizer.",
       "repo": "https://github.com/riders994/rv_pytools",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "PostgreSQL",
+        "psycopg2",
+        "pandas"
+      ],
       "status": "in-flight",
       "featured_at": null,
       "completed_at": null,
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "basketball-max-pf",
       "name": "Basketball MaxPF",
-      "blurb": "",
+      "blurb": "Max Points For for fantasy basketball \u2014 the lineup you should have set, scored against the one you did.",
       "repo": "https://github.com/riders994/basketball_max_pf",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "NumPy",
+        "SciPy",
+        "Fantrax API",
+        "GitHub Actions"
+      ],
       "status": "in-flight",
       "featured_at": "2026-08-21",
       "completed_at": null,
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "elo-system",
       "name": "Elo System",
-      "blurb": "",
+      "blurb": "Elo ratings for fantasy leagues, pulled straight from Fantrax and Sleeper. Seasonal and all-time.",
       "repo": "https://github.com/riders994/eloSystem",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "PostgreSQL",
+        "pandas",
+        "Fantrax API",
+        "Sleeper API"
+      ],
       "status": "in-flight",
       "featured_at": "2026-08-21",
       "completed_at": null,
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     },
     {
       "slug": "wojbot",
       "name": "WojBot",
-      "blurb": "",
+      "blurb": "A league bot in the spirit of Adrian Wojnarowski: anonymous rumors, Elo ratings, and soon a draft lottery.",
       "repo": "https://github.com/riders994/WojBot",
       "webapp": null,
-      "tags": [],
+      "tags": [
+        "Python",
+        "discord.py",
+        "PostgreSQL",
+        "Sleeper API",
+        "pytest"
+      ],
       "status": "in-flight",
       "featured_at": "2026-08-21",
       "completed_at": null,
       "page": "generated",
-      "readme_branch": null
+      "readme_branch": null,
+      "draft": false
     }
   ]
 }

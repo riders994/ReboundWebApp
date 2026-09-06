@@ -23,7 +23,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 CONFIG = pathlib.Path(__file__).resolve().parent / "feeds.json"
-IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
+IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".svg"}
 
 
 def is_image(name):

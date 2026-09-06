@@ -8,3 +8,7 @@ or when a project's page needs different content than its README.
 README. Projects marked `"page": "custom"` (e.g. the rebound demo, which has a hand-authored
 page with an embedded app) are skipped by `render` entirely — their page is edited directly
 under `site/projects/`.
+
+An override for a project flagged `"draft": true` in `projects.json` stays here untouched but
+is not built — `render` removes that project's page instead. That is the point: holding a
+project back never costs you the writeup. `projects.py publish <slug>` restores it.

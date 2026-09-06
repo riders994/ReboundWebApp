@@ -12,7 +12,8 @@ site/            Static portfolio (plain HTML/CSS/JS, no build step) — nginx d
   resume.html        resume + PDF download
   blog/              posts
   comedy.html        stand-up / performances
-  assets/            css, js, images, svg  (headshot.jpg, thumbs are TODO)
+  assets/            css, js, images, svg
+    img/fallbacks/     default card covers, used when a card has no image of its own
 rebound-app/     Flask JSON API for the demo (Python 3) — no static/template serving
   app.py             HTTP only; all features come from the `rebounding` package
   coordinates.py     canvas<->model frame conversion — read before touching geometry
@@ -82,6 +83,16 @@ and its dropped count. Nothing recorded identifies a visitor — no IP, user age
 or session id. Setup is step 5d of [DEPLOY.md](DEPLOY.md); the table is created on first
 write, so there is no migration to run.
 
+### Default card covers
+A card with no image of its own used to render an empty box. `site/assets/img/fallbacks/`
+holds twelve abstract covers in the site's palette (SVG, light/dark aware) and any card
+missing its `<slug>-thumb.png` gets one. `assets/js/thumbs.js` deals them from a shuffled
+bag rather than picking per card, so no page repeats a cover while unused ones remain, and
+the shuffle is seeded from the manifest so a project keeps the same cover across reloads
+and between the projects grid and the resume carousel. It's the `fallbacks` photo feed —
+drop images in, run `python3 scripts/gen-manifests.py`. See
+[the directory's README](site/assets/img/fallbacks/README.md).
+
 ### Accuracy, stated honestly
 The bundle reports **29.7% top-1** (66.8% top-3, MRR 0.520) over 5,756 held-out shots,
 measured with real listed player positions. The demo's position picker supplies them, so
@@ -105,5 +116,6 @@ See [DEPLOY.md](DEPLOY.md).
 
 ## TODO content
 Bio + headshot, project #2–4, comedy clips/shows, blog posts — all marked with
-`TODO` in the HTML. The rebounding case study and blog post have been updated for the
+`TODO` in the HTML. Project thumbnails are no longer blocking: a project with no
+`assets/img/<slug>-thumb.png` shows a default cover until a real one is dropped in. The rebounding case study and blog post have been updated for the
 2026 retrain; the blog post still carries a `TODO` about putting it in your own voice.

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" role="img" aria-hidden="true">
+  <style>
+    .bg { fill: #ece3f7; }
+    .ink { fill: #6d57bd; stroke: #6d57bd; }
+    .ink2 { fill: #9b86d9; stroke: #9b86d9; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #201a2b; }
+      .ink { fill: #b0a0e6; stroke: #b0a0e6; }
+      .ink2 { fill: #7b6bb0; stroke: #7b6bb0; }
+    }
+    [fill=none] { fill: none; }
+  </style>
+  <rect class="bg" width="640" height="400"/>
+  <path d="M-204 400 L-54 0 L-26 0 L-176 400 Z" class="ink2" opacity="0.46"/>
+  <path d="M-170 400 L-20 0 L8 0 L-142 400 Z" class="ink" opacity="0.10"/>
+  <path d="M-136 400 L14 0 L42 0 L-108 400 Z" class="ink" opacity="0.19"/>
+  <path d="M-102 400 L48 0 L76 0 L-74 400 Z" class="ink2" opacity="0.28"/>
+  <path d="M-68 400 L82 0 L110 0 L-40 400 Z" class="ink" opacity="0.37"/>
+  <path d="M-34 400 L116 0 L144 0 L-6 400 Z" class="ink" opacity="0.46"/>
+  <path d="M0 400 L150 0 L178 0 L28 400 Z" class="ink2" opacity="0.10"/>
+  <path d="M34 400 L184 0 L212 0 L62 400 Z" class="ink" opacity="0.19"/>
+  <path d="M68 400 L218 0 L246 0 L96 400 Z" class="ink" opacity="0.28"/>
+  <path d="M102 400 L252 0 L280 0 L130 400 Z" class="ink2" opacity="0.37"/>
+  <path d="M136 400 L286 0 L314 0 L164 400 Z" class="ink" opacity="0.46"/>
+  <path d="M170 400 L320 0 L348 0 L198 400 Z" class="ink" opacity="0.10"/>
+  <path d="M204 400 L354 0 L382 0 L232 400 Z" class="ink2" opacity="0.19"/>
+  <path d="M238 400 L388 0 L416 0 L266 400 Z" class="ink" opacity="0.28"/>
+  <path d="M272 400 L422 0 L450 0 L300 400 Z" class="ink" opacity="0.37"/>
+  <path d="M306 400 L456 0 L484 0 L334 400 Z" class="ink2" opacity="0.46"/>
+  <path d="M340 400 L490 0 L518 0 L368 400 Z" class="ink" opacity="0.10"/>
+  <path d="M374 400 L524 0 L552 0 L402 400 Z" class="ink" opacity="0.19"/>
+  <path d="M408 400 L558 0 L586 0 L436 400 Z" class="ink2" opacity="0.28"/>
+  <path d="M442 400 L592 0 L620 0 L470 400 Z" class="ink" opacity="0.37"/>
+  <path d="M476 400 L626 0 L654 0 L504 400 Z" class="ink" opacity="0.46"/>
+  <path d="M510 400 L660 0 L688 0 L538 400 Z" class="ink2" opacity="0.10"/>
+  <path d="M544 400 L694 0 L722 0 L572 400 Z" class="ink" opacity="0.19"/>
+  <path d="M578 400 L728 0 L756 0 L606 400 Z" class="ink" opacity="0.28"/>
+  <path d="M612 400 L762 0 L790 0 L640 400 Z" class="ink2" opacity="0.37"/>
+  <path d="M646 400 L796 0 L824 0 L674 400 Z" class="ink" opacity="0.46"/>
+  <path d="M680 400 L830 0 L858 0 L708 400 Z" class="ink" opacity="0.10"/>
+  <path d="M714 400 L864 0 L892 0 L742 400 Z" class="ink2" opacity="0.19"/>
+</svg>

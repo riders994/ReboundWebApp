@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" role="img" aria-hidden="true">
+  <style>
+    .bg { fill: #ece3f7; }
+    .ink { fill: #6d57bd; stroke: #6d57bd; }
+    .ink2 { fill: #9b86d9; stroke: #9b86d9; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #201a2b; }
+      .ink { fill: #b0a0e6; stroke: #b0a0e6; }
+      .ink2 { fill: #7b6bb0; stroke: #7b6bb0; }
+    }
+    [fill=none] { fill: none; }
+  </style>
+  <rect class="bg" width="640" height="400"/>
+  <rect x="30" y="20" width="580" height="360" rx="18" fill="none" class="ink2" stroke-width="3" opacity="0.70"/>
+  <rect x="51" y="33" width="538" height="334" rx="17" fill="none" class="ink" stroke-width="3" opacity="0.64"/>
+  <rect x="72" y="46" width="496" height="308" rx="16" fill="none" class="ink2" stroke-width="3" opacity="0.58"/>
+  <rect x="93" y="59" width="454" height="282" rx="15" fill="none" class="ink" stroke-width="3" opacity="0.52"/>
+  <rect x="114" y="72" width="412" height="256" rx="14" fill="none" class="ink2" stroke-width="3" opacity="0.46"/>
+  <rect x="135" y="85" width="370" height="230" rx="13" fill="none" class="ink" stroke-width="3" opacity="0.40"/>
+  <rect x="156" y="98" width="328" height="204" rx="12" fill="none" class="ink2" stroke-width="3" opacity="0.34"/>
+  <rect x="177" y="111" width="286" height="178" rx="11" fill="none" class="ink" stroke-width="3" opacity="0.28"/>
+  <rect x="198" y="124" width="244" height="152" rx="10" fill="none" class="ink2" stroke-width="3" opacity="0.22"/>
+</svg>

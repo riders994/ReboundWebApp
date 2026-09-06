@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" role="img" aria-hidden="true">
+  <style>
+    .bg { fill: #ece3f7; }
+    .ink { fill: #6d57bd; stroke: #6d57bd; }
+    .ink2 { fill: #9b86d9; stroke: #9b86d9; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #201a2b; }
+      .ink { fill: #b0a0e6; stroke: #b0a0e6; }
+      .ink2 { fill: #7b6bb0; stroke: #7b6bb0; }
+    }
+    [fill=none] { fill: none; }
+  </style>
+  <rect class="bg" width="640" height="400"/>
+  <path d="M-20 50 L20.0 -30 L60 50 Z" class="ink" opacity="0.31"/>
+  <path d="M-20 -30 L60 -30 L20.0 50 Z" class="ink" opacity="0.22"/>
+  <path d="M60 50 L100.0 -30 L140 50 Z" class="ink" opacity="0.11"/>
+  <path d="M60 -30 L140 -30 L100.0 50 Z" class="ink" opacity="0.13"/>
+  <path d="M140 50 L180.0 -30 L220 50 Z" class="ink2" opacity="0.14"/>
+  <path d="M140 -30 L220 -30 L180.0 50 Z" class="ink2" opacity="0.40"/>
+  <path d="M220 -30 L300 -30 L260.0 50 Z" class="ink2" opacity="0.11"/>
+  <path d="M300 -30 L380 -30 L340.0 50 Z" class="ink" opacity="0.14"/>
+  <path d="M380 50 L420.0 -30 L460 50 Z" class="ink2" opacity="0.16"/>
+  <path d="M460 -30 L540 -30 L500.0 50 Z" class="ink" opacity="0.12"/>
+  <path d="M540 50 L580.0 -30 L620 50 Z" class="ink" opacity="0.32"/>
+  <path d="M540 -30 L620 -30 L580.0 50 Z" class="ink" opacity="0.29"/>
+  <path d="M620 50 L660.0 -30 L700 50 Z" class="ink" opacity="0.35"/>
+  <path d="M-20 130 L20.0 50 L60 130 Z" class="ink" opacity="0.27"/>
+  <path d="M60 50 L140 50 L100.0 130 Z" class="ink2" opacity="0.14"/>
+  <path d="M140 130 L180.0 50 L220 130 Z" class="ink2" opacity="0.15"/>
+  <path d="M140 50 L220 50 L180.0 130 Z" class="ink" opacity="0.31"/>
+  <path d="M300 50 L380 50 L340.0 130 Z" class="ink2" opacity="0.29"/>
+  <path d="M380 50 L460 50 L420.0 130 Z" class="ink2" opacity="0.40"/>
+  <path d="M460 130 L500.0 50 L540 130 Z" class="ink2" opacity="0.12"/>
+  <path d="M620 50 L700 50 L660.0 130 Z" class="ink" opacity="0.31"/>
+  <path d="M-20 210 L20.0 130 L60 210 Z" class="ink" opacity="0.15"/>
+  <path d="M-20 130 L60 130 L20.0 210 Z" class="ink" opacity="0.35"/>
+  <path d="M60 210 L100.0 130 L140 210 Z" class="ink" opacity="0.23"/>
+  <path d="M140 210 L180.0 130 L220 210 Z" class="ink" opacity="0.28"/>
+  <path d="M300 210 L340.0 130 L380 210 Z" class="ink" opacity="0.21"/>
+  <path d="M380 130 L460 130 L420.0 210 Z" class="ink" opacity="0.17"/>
+  <path d="M460 210 L500.0 130 L540 210 Z" class="ink" opacity="0.29"/>
+  <path d="M460 130 L540 130 L500.0 210 Z" class="ink" opacity="0.23"/>
+  <path d="M540 210 L580.0 130 L620 210 Z" class="ink" opacity="0.40"/>
+  <path d="M620 210 L660.0 130 L700 210 Z" class="ink2" opacity="0.32"/>
+  <path d="M620 130 L700 130 L660.0 210 Z" class="ink2" opacity="0.35"/>
+  <path d="M60 290 L100.0 210 L140 290 Z" class="ink" opacity="0.13"/>
+  <path d="M140 290 L180.0 210 L220 290 Z" class="ink" opacity="0.17"/>
+  <path d="M140 210 L220 210 L180.0 290 Z" class="ink" opacity="0.12"/>
+  <path d="M220 290 L260.0 210 L300 290 Z" class="ink" opacity="0.13"/>
+  <path d="M220 210 L300 210 L260.0 290 Z" class="ink" opacity="0.38"/>
+  <path d="M300 210 L380 210 L340.0 290 Z" class="ink" opacity="0.21"/>
+  <path d="M380 290 L420.0 210 L460 290 Z" class="ink" opacity="0.37"/>
+  <path d="M460 290 L500.0 210 L540 290 Z" class="ink" opacity="0.13"/>
+  <path d="M460 210 L540 210 L500.0 290 Z" class="ink" opacity="0.18"/>
+  <path d="M540 210 L620 210 L580.0 290 Z" class="ink" opacity="0.40"/>
+  <path d="M620 290 L660.0 210 L700 290 Z" class="ink" opacity="0.27"/>
+  <path d="M620 210 L700 210 L660.0 290 Z" class="ink" opacity="0.41"/>
+  <path d="M60 370 L100.0 290 L140 370 Z" class="ink" opacity="0.15"/>
+  <path d="M140 370 L180.0 290 L220 370 Z" class="ink2" opacity="0.21"/>
+  <path d="M140 290 L220 290 L180.0 370 Z" class="ink2" opacity="0.42"/>
+  <path d="M380 370 L420.0 290 L460 370 Z" class="ink" opacity="0.21"/>
+  <path d="M380 290 L460 290 L420.0 370 Z" class="ink" opacity="0.19"/>
+  <path d="M460 370 L500.0 290 L540 370 Z" class="ink2" opacity="0.41"/>
+  <path d="M460 290 L540 290 L500.0 370 Z" class="ink2" opacity="0.42"/>
+  <path d="M540 290 L620 290 L580.0 370 Z" class="ink" opacity="0.17"/>
+  <path d="M620 370 L660.0 290 L700 370 Z" class="ink" opacity="0.30"/>
+  <path d="M-20 370 L60 370 L20.0 450 Z" class="ink2" opacity="0.36"/>
+  <path d="M60 450 L100.0 370 L140 450 Z" class="ink2" opacity="0.39"/>
+  <path d="M140 370 L220 370 L180.0 450 Z" class="ink" opacity="0.35"/>
+  <path d="M220 450 L260.0 370 L300 450 Z" class="ink2" opacity="0.41"/>
+  <path d="M220 370 L300 370 L260.0 450 Z" class="ink" opacity="0.40"/>
+  <path d="M300 370 L380 370 L340.0 450 Z" class="ink" opacity="0.15"/>
+  <path d="M460 450 L500.0 370 L540 450 Z" class="ink2" opacity="0.41"/>
+  <path d="M540 450 L580.0 370 L620 450 Z" class="ink" opacity="0.14"/>
+  <path d="M540 370 L620 370 L580.0 450 Z" class="ink2" opacity="0.31"/>
+  <path d="M620 450 L660.0 370 L700 450 Z" class="ink2" opacity="0.24"/>
+</svg>

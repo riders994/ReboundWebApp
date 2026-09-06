@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Basketball MaxPF — Rohan Vahalia</title>
-  <meta name="description" content="">
+  <meta name="description" content="Max Points For for fantasy basketball — the lineup you should have set, scored against the one you did.">
   <link rel="stylesheet" href="../assets/css/main.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
 </head>
@@ -27,217 +27,36 @@
   <header class="wrap section" style="padding-bottom:1rem">
     <p class="eyebrow">Project · <span class="badge badge--in-flight">In flight</span></p>
     <h1>Basketball MaxPF</h1>
-    <p class="lead"></p>
-    <ul class="tags" style="margin-top:1rem"></ul>
+    <p class="lead">Max Points For for fantasy basketball — the lineup you should have set, scored against the one you did.</p>
+    <ul class="tags" style="margin-top:1rem"><li class="tag">Python</li><li class="tag">NumPy</li><li class="tag">SciPy</li><li class="tag">Fantrax API</li><li class="tag">GitHub Actions</li></ul>
     <div class="project-links" style="margin-top:1.4rem">
         <a class="btn btn--ghost" href="https://github.com/riders994/basketball_max_pf" target="_blank" rel="noopener">View on GitHub →</a>
     </div>
   </header>
 
   <article class="wrap section prose">
-    <h1 id="basketball_max_pf">basketball_max_pf</h1>
-    <p>A Python package for computing a <strong>"max points for"</strong> metric for a 9-category
-    head-to-head fantasy basketball league. Give it your league platform and a
-    league id and it reconstructs, for every team and every matchup period, the
-    best lineup you <em>could</em> have set — and turns the gap between that and reality
-    into a single interpretable number.</p>
-    <p>The first supported platform is <strong>Fantrax</strong>; the design keeps the platform,
-    the player-stat source, and the lineup objective behind seams so other sports
-    or platforms can be added later.</p>
-    <blockquote>
-    <p>Status: Objective A (opponent-aware category-win maximization) is implemented
-    end-to-end and validated against a finished public league. See
-    <a href="#roadmap">Roadmap</a> for what's next, and
-    <a href="docs/PROMPT_LOG.md"><code>docs/PROMPT_LOG.md</code></a> for the full design journal.</p>
-    </blockquote>
-    <h2 id="the-metric">The metric</h2>
-    <p>"Points for" in this league <em>are</em> category wins — they only exist relative to
-    an opponent (a tie is a <strong>draw</strong>, worth 0.5; Fantrax awards ties, it does not
-    wash or split them). So the metric and the benchmark are one decision, not two.</p>
-    <p>For each matchup period we compute a one-round <strong>best response</strong> (each side
-    optimizes against the <em>other side's actual</em> lineup — a well-posed fixed target,
-    avoiding the Nash infinite regress):</p>
-    <table>
-    <thead>
-    <tr>
-    <th>Quantity</th>
-    <th>Definition</th>
-    <th>Reads as</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-    <td><strong>M1</strong></td>
-    <td>catwins(<code>mine_opt</code>, <code>opp_actual</code>)</td>
-    <td>your exploitation ceiling vs how they actually played</td>
-    </tr>
-    <tr>
-    <td><strong>M2</strong></td>
-    <td>catwins(<code>mine_opt</code>, <code>their_opt</code>)</td>
-    <td>the same lineup vs their best counter</td>
-    </tr>
-    <tr>
-    <td><strong>Δ</strong></td>
-    <td>M1 − M2</td>
-    <td>the <strong>opponent-mismanagement dividend</strong> — points banked purely because the opponent didn't optimize</td>
-    </tr>
-    <tr>
-    <td><strong>Potential</strong></td>
-    <td>Actual − M1</td>
-    <td>realized result vs your <strong>exploitation ceiling</strong> — points left on the table against the opponent's actual play (≤ 0 under hindsight, where M1 ≥ Actual). Shown in every report.</td>
-    </tr>
-    <tr>
-    <td><strong>M3</strong></td>
-    <td>mutual ceiling</td>
-    <td>the two-player equilibrium value — both managers play optimally against each other (pure- or mixed-strategy). See <a href="#roadmap">Roadmap</a>.</td>
-    </tr>
-    <tr>
-    <td><strong>Passivity</strong></td>
-    <td>M1 − M3</td>
-    <td>the <strong>opponent-passivity dividend</strong> — how much of M1 relied on the opponent <em>not</em> also optimizing (M1 ≥ M3, so ≥ 0)</td>
-    </tr>
-    <tr>
-    <td><strong>Anticipation</strong></td>
-    <td>M3 − M2</td>
-    <td>the swing from the decoupled both-optimize estimate (M2, each side aimed at the other's actual) to the true equilibrium (M3) — the value of mutual strategic anticipation (usually positive). Shown with the Nash columns.</td>
-    </tr>
-    <tr>
-    <td><strong>Luck</strong></td>
-    <td>Actual − M3</td>
-    <td>realized result vs the both-optimal equilibrium — positive ⇒ you scored above the mutual ceiling (opponent passivity, or a hot week); negative ⇒ below it. Shown with the Nash columns.</td>
-    </tr>
-    </tbody>
-    </table>
-    <p>FG% and FT% are aggregated correctly across a lineup via Σmakes / Σattempts
-    (never by averaging percentages); TO is treated as lower-is-better.</p>
-    <p>The best-response above is <strong>Objective A</strong> (the default, <code>--objective catwins</code>):
-    each side optimizes category wins against the other's <em>actual</em> lineup. The
-    optimizer's objective is pluggable, with two opponent-independent alternatives
-    that report catwins as a readout: <strong>Objective B</strong> (<code>--objective zscore</code>) maximizes
-    total <strong>z-score value</strong> (scarcity-weighted), and <strong>Objective C</strong> (<code>--objective raw</code>)
-    maximizes total <strong>raw output</strong> (scarcity-blind, volume-chasing). Both <em>bench
-    below-replacement (negative-value) players</em> — since value prices in FG%/FT%
-    volume-impact and turnovers, dropping them protects the ratio cats and TO that
-    swing a week (C, whose raw value is almost always positive, benches far less).
-    See <a href="#roadmap">Roadmap</a>.</p>
-    <h2 id="two-methodologies">Two methodologies</h2>
-    <p>The optimizer needs a target statline for each player. Where that comes from is
-    the <strong>ex-ante vs ex-post</strong> fork, and the package implements both:</p>
-    <ul>
-    <li><strong>A-expected</strong> (<code>--methodology expected</code>) — season-to-date <em>per-game rates</em>
-      placed on the days each player's team plays in the period. No clairvoyance;
-      the ceiling is a projection. Rates come from exact basketball-reference
-      box scores (real makes/attempts, no estimator); the Fantrax season-to-date
-      view + position-based FG/FT attempt estimator is the no-extra-dependency
-      fallback when box scores aren't attached.</li>
-    <li><strong>A-hindsight</strong> (<code>--methodology hindsight</code>) — <em>realized</em> per-day box scores
-      from basketball-reference, joined to the full historical roster. This is the
-      true "best lineup you could have set" ceiling: <strong>M1 ≥ Actual always</strong>.</li>
-    </ul>
-    <h2 id="data-sources">Data sources</h2>
-    <ul>
-    <li><strong>Fantrax</strong> (via the <a href="https://github.com/riders994/FantraxAPI">stable fork of FantraxAPI</a>,
-      <strong>vendored</strong> under <code>max_pf._vendor</code> — see <code>src/max_pf/_vendor/NOTICE.md</code>) is the
-      source of truth for league structure: rosters (incl. historical daily
-      membership), active-slot config, matchup schedule, and <strong>actual results</strong>.
-      Public leagues read with only the league id (no credentials).</li>
-    <li><strong>basketball-reference</strong> supplies exact per-player per-day 9-cat lines with
-      real makes/attempts (FG%/FT% denominators Fantrax never exposes). Disk-cached
-      under <code>.cache/bref/</code> at a polite request rate; <code>nba_api</code> is a drop-in for
-      local runs where stats.nba.com is reachable.</li>
-    </ul>
-    <p>These sit behind a pluggable <code>StatSource</code> seam, so the optimizer, engine, and
-    report are identical across methodologies.</p>
-    <h2 id="install">Install</h2>
-    <pre><code class="language-bash">pip install -e &quot;.[boxscores]&quot;   # add 'dev' for the test suite
-    </code></pre>
-    <p>The Fantrax adapter works out of the box — its API client is vendored, so there
-    is no VCS/URL dependency (and the package installs cleanly from PyPI). numpy and
-    scipy install automatically (scipy backs the Nash mutual-ceiling equilibrium
-    solver). <code>boxscores</code> pulls beautifulsoup4 for the basketball-reference source;
-    <code>yaml</code> adds YAML login-file support on the CLI (JSON works without it). (Per
-    packaging convention, all version specifiers are <code>&gt;=</code> for compatibility.)</p>
-    <h2 id="usage">Usage</h2>
-    <p><strong>Programmatic</strong> — pass a <em>login dict</em> naming the platform and its details; you
-    get back the season-to-date report rows (render with the <code>render_*</code> helpers):</p>
-    <pre><code class="language-python">import max_pf
-
-    rows = max_pf.run({&quot;platform&quot;: &quot;fantrax&quot;, &quot;league_id&quot;: &quot;wserh14rmbbpqtcg&quot;})
-    print(max_pf.render_table(rows))
-
-    # Scope to one week or a selection, and pick methodology / objective:
-    rows = max_pf.run(login, weeks=&quot;1-6&quot;, methodology=&quot;hindsight&quot;, objective=&quot;zscore&quot;)
-    rows = max_pf.run(login, weeks=6)            # a single week
-    rows = max_pf.run(login, nash=False)         # drop the M3 / Passivity columns for speed
-    </code></pre>
-    <p><code>weeks</code> accepts a single int, a list, or a spec string (<code>"5"</code>, <code>"1-6"</code>,
-    <code>"1,2,5"</code>); <code>None</code> (the default) is the whole season to date. Box scores back
-    both methodologies by default; pass <code>boxscores=False</code> for the no-extra-dependency
-    Fantrax estimator (A-expected only). The mutual ceiling — the <strong>M3</strong> / <strong>Passivity</strong>
-    columns — is on by default for the full picture; pass <code>nash=False</code> (CLI:
-    <code>--no-nash</code>) to skip the per-team equilibrium search for a quicker M1/M2-only report.</p>
-    <p><strong>Command line</strong> — point it at a JSON or YAML file holding the same login dict:</p>
-    <pre><code class="language-bash"># league.json: {&quot;platform&quot;: &quot;fantrax&quot;, &quot;league_id&quot;: &quot;wserh14rmbbpqtcg&quot;}
-    python -m max_pf league.json
-    python -m max_pf league.yaml --weeks 1-6 --methodology hindsight --out reports/half1
-    </code></pre>
-    <p>It prints the table and writes <code>&lt;out&gt;.csv</code> and <code>&lt;out&gt;.md</code>. While it works, a
-    per-team progress bar animates on stderr (the season report can take a while with
-    the Nash search on); it appears only when stderr is a terminal, so redirected or
-    piped output stays clean, and <code>--no-progress</code> turns it off. The bar is stderr-only,
-    so <code>python -m max_pf league.json &gt; table.txt</code> still captures just the table.</p>
-    <h2 id="findings">Findings</h2>
-    <p>Full-season run on the finished public league <code>wserh14rmbbpqtcg</code> ("Mao's Macho
-    Mandarins", 2025-26 NBA, 16 teams × 24 periods), A-expected vs A-hindsight.
-    (See the committed <code>season_report.{txt,csv,md}</code> for the full table; reproduce with
-    <code>python -m max_pf league.json [--methodology hindsight]</code>.)</p>
-    <ul>
-    <li><strong>The ceiling invariant holds under hindsight.</strong> M1 ≥ Actual for every team
-      in both reports; A-hindsight makes this a <em>guarantee</em> (realized data),
-      whereas A-expected can't because a team that ran hot beats its projection.</li>
-    <li><strong>Projections are optimistic.</strong> A-expected M1 &gt; A-hindsight M1 for 15 of 16
-      teams (smooth per-game rates, no DNPs/variance). The lone exception is
-      <em>Trusting the Process</em>, whose players out-ran their season rates in the games
-      actually played.</li>
-    <li><strong>Hindsight isolates real mismanagement.</strong> With projection variance stripped,
-      the <strong>Actual−M1 gap</strong> shrinks in magnitude (band −6.5…−60 vs expected −9.5…−66)
-      — it becomes genuine points left on the table, not forecast noise. (This gap is
-      the realized-ceiling shortfall; it predates the <code>Luck</code> column's redefinition to
-      Actual−M3 and is distinct from it.)</li>
-    <li><strong>The dividend Δ tightens to a credible band.</strong> The expected spread (7–73)
-      compresses to 11–35 under hindsight. The dbyun89 expected outlier (Δ=73,
-      driven by an implausible expected M2=38) corrects to Δ=35 (M2=71), confirming
-      it was a projection artifact rather than a real opponent giveaway.</li>
-    </ul>
-    <p><strong>Takeaway:</strong> A-hindsight is the trustworthy read for both the efficiency
-    ceiling (the Actual−M1 gap) and the dividend (<code>Δ</code>); A-expected is the
-    no-clairvoyance projection useful before results are in.</p>
-    <h2 id="roadmap">Roadmap</h2>
-    <ul>
-    <li>Live re-validation against the updated <code>@stable</code> fork — <strong>done</strong> (results
-      bit-identical to the pre-update fork; see the prompt log).</li>
-    <li>Exact A-expected on box scores (estimator replaced as the metric's data
-      source) — <strong>done</strong>; reproduces the estimator's category-win metric while using
-      real makes/attempts and the real schedule.</li>
-    <li>Objective B (z-score / punt-aware weighting) — <strong>done</strong>. <code>--objective zscore</code>
-      plays each side's opponent-independent max-total-z-value lineup (league-wide
-      per-game population; volume-weighted ratio impact, TO inverted); catwins is a
-      readout. Objective A's category-win M1 is &gt;= Objective B's by construction.</li>
-    <li>Objective C (raw statistical output) — <strong>done</strong>. <code>--objective raw</code> plays each
-      side's max-raw-output lineup (same league-wide population as B, but values
-      players without scarcity weighting, so it chases volume); opponent-independent,
-      catwins as a readout.</li>
-    <li>Nash "mutual ceiling" (two-player equilibrium) — <strong>done</strong> (both stages).
-      <code>engine.nash_ceiling</code> runs iterated best response to the fixed point where each
-      lineup best-responds to the other, yielding the pure-strategy <strong>M3</strong> = the
-      both-sides-optimal category split (~80% of periods on the test league). For the
-      ~20% that cycle (no pure equilibrium), a <strong>double-oracle</strong> LP
-      (<code>engine._double_oracle</code> + <code>nash_lp.solve_zero_sum_game</code> over scipy <code>linprog</code>)
-      resolves M3 as the mixed-strategy minimax value. On by default; <code>--no-nash</code> skips it.</li>
-    </ul>
-    <p>Open items (artifact regeneration, swapping the vendored fantraxapi for a
-    published one, more platforms) are tracked in <a href="TODO.md"><code>TODO.md</code></a>. See
-    <a href="docs/PROMPT_LOG.md"><code>docs/PROMPT_LOG.md</code></a> for the complete design history.</p>
+    <p>In fantasy football, there exists a concept of Max Points For (MPF) by looking at every week
+    and rearranging your lineup so that it achieves the most points possible. For the purposes of
+    fantasy sports, especially dynasty, it's a more reliable measure of talent in the long term
+    than wins alone. Many dynasty leagues use it as a metric to determine draft order to
+    discourage a "soft tank". I got Claude to write a python package to compute this for
+    basketball.</p>
+    <p>Since basketball can have category scoring available, this problem becomes more nebulous.
+    What is the "best" array of categories to score? While people are constantly trying to answer
+    this question from a drafting perspective (HashtagBasketball uses weighted Z-scores for their
+    grading), it's slightly easier answering this question post-draft. Looking at a particular
+    group of players over a period of time, it is not hard to determine which configuration
+    yields the most optimal output.</p>
+    <h2 id="the-scores">The scores</h2>
+    <p><strong>M1</strong> — if you'd played the lineup that makes your team shine at what they're best at
+    against your opponents, how would you have fared. This will always be more than the original
+    number of categories won.</p>
+    <p><strong>M2</strong> — the number of categories won if both players ran their perceived optimal lineup,
+    which can be lower than your actual score.</p>
+    <p><strong>M3</strong> — a best guess at what it would look like if both teams were actively trying to win by
+    setting a lineup most likely to outscore their specific opponent.</p>
+    <p>There are a few other metrics worth calculating off of this which are mentioned in the repo
+    itself.</p>
   </article>
 
   <footer class="footer">

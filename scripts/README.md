@@ -2,9 +2,10 @@
 
 ## Photo feeds
 
-A **feed** is a set of photos the site shows (the headshot slideshow today; vacation, cat,
-etc. later). Feeds are declared in [`feeds.json`](feeds.json) and turned into a
-`manifest.json` per feed by [`gen-manifests.py`](gen-manifests.py), which the front-end reads.
+A **feed** is a set of photos the site shows — today the headshot slideshow and the default
+card covers (`fallbacks`); vacation, cat, etc. later. Feeds are declared in
+[`feeds.json`](feeds.json) and turned into a `manifest.json` per feed by
+[`gen-manifests.py`](gen-manifests.py), which the front-end reads.
 
 `scripts/serve.sh` and the deploy steps run the generator automatically, or run it by hand:
 
@@ -26,7 +27,7 @@ Each feed is an object in the `feeds` array:
 | `prefix`    | s3         | key prefix to list (e.g. `"vacation/"`)                            |
 | `base_url`  | s3         | public URL base; defaults to `https://<bucket>.s3.amazonaws.com/` (use your CloudFront domain if you have one) |
 
-### `local` feeds (current headshots flow)
+### `local` feeds (the headshots and fallbacks flow)
 
 Images live in the repo under `dir`; the manifest lists **filenames** and the page prepends
 `dir`. Drop images in the folder, run the generator, commit. No dependencies.
@@ -106,13 +107,25 @@ it by dropping `content/projects/<slug>.md` in THIS repo. Projects marked `"page
 
 ```bash
 python3 scripts/projects.py add <slug> --name "..." --repo <url> [--blurb ..] [--tags a b] \
-        [--webapp <url>] [--status in-flight|completed] [--page generated|custom]
+        [--webapp <url>] [--status in-flight|completed] [--page generated|custom] [--draft]
 python3 scripts/projects.py feature   <slug>          # designate featured (stamps today)
 python3 scripts/projects.py unfeature <slug>
 python3 scripts/projects.py status    <slug> completed
+python3 scripts/projects.py draft     <slug>          # hold back: delist + remove the page
+python3 scripts/projects.py publish   <slug>          # undo a draft
 python3 scripts/projects.py list
 python3 scripts/projects.py render                    # READMEs/overrides -> detail pages
 ```
+
+**Taking a project off the site** — set `"draft": true` (via `projects.py draft <slug>`)
+rather than deleting its entry. A draft keeps its metadata and its
+`content/projects/<slug>.md` override, but is filtered out of the projects index *and* the
+resume carousel, and `render` deletes its detail page instead of building one. `publish`
+puts it back, and the next `render` rebuilds the page from the override that was never lost.
+
+Drafts are dropped *before* the featured-5 is computed, in the CLI and in both JS consumers
+(`projects.js`, `main.js`) — otherwise a held-back project would sit on a featured slot and
+silently shrink the highlight row.
 
 `render` needs `markdown` (`pip install -r scripts/requirements.txt`). `serve.sh` and the
 deploy steps run it automatically.
