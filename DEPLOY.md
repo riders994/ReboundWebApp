@@ -471,6 +471,82 @@ Visit `http://postuptothe.net` — the site should load over plain HTTP.
 > after a publish. Don't "tidy" the `location ~* \.json$` block back under the `/assets/`
 > rule. (nginx still serves Last-Modified/ETag, so an unchanged file 304s — near-zero cost.)
 
+### 6a. Campaign tracking *(UTM, on the box)*
+
+Tracking which post sent which visitor needs **no analytics vendor and no JavaScript**.
+A UTM tag is query string, nginx sees it on every request, and the config above writes
+the tagged ones to their own file.
+
+```bash
+# The log directory and the retention policy for it.
+sudo cp ~/ReboundWebApp/deploy/logrotate-utm.conf /etc/logrotate.d/postuptothe-utm
+sudo chmod 0644 /etc/logrotate.d/postuptothe-utm      # logrotate skips a writable config
+sudo logrotate -d /etc/logrotate.d/postuptothe-utm    # dry run: prints, changes nothing
+
+# Read the log from your laptop without sudo. /var/log/nginx is root:adm 0640, and
+# `adm` is the supported way to grant log reads — narrower than widening the NOPASSWD
+# sudoers entry publish.sh uses. Log back in for the group to take effect.
+sudo usermod -aG adm ubuntu
+```
+
+Then reload nginx (step 6) and check that a tagged request lands:
+
+```bash
+curl -sI "http://postuptothe.net/?utm_source=smoketest&utm_medium=cli&utm_campaign=setup" >/dev/null
+tail -1 /var/log/nginx/postuptothe.utm.tsv    # one tab-separated line, no IP
+```
+
+Reading it, from your laptop — it fetches over SSH using the same host and key as
+`scripts/publish.sh`, rotations included:
+
+```bash
+python3 scripts/utm.py links                     # the links to paste into a post
+python3 scripts/utm.py report                    # hits by source / medium / campaign
+python3 scripts/utm.py report --by source,day    # ...per day
+python3 scripts/utm.py report --by page,status   # where they landed, and what 404'd
+```
+
+**Three things to know before you read a number off it.**
+
+*The crawlers get there first.* LinkedIn and Twitter fetch a shared URL themselves to
+build the preview card, using the same tagged link a human would. On a post nobody
+clicks, they are the only traffic. `utm.py` excludes them by default and says how many
+it dropped; `--include-bots` shows them.
+
+*Retention is the whole reason `logrotate-utm.conf` exists.* The stock
+`/etc/logrotate.d/nginx` keeps 14 rotations of `/var/log/nginx/*.log`, which would age
+out a launch week a fortnight later. The campaign log is named `.tsv` so it sits outside
+that glob (logrotate errors on a log claimed by two configs) and gets `rotate 104`
+instead. Same argument as prediction logging in 5d: this traffic cannot be collected
+retroactively.
+
+*A tag marks the landing request and nothing after it.* The file answers "which post
+sent how many people" and cannot answer "what did they read next" — that needs a
+per-visitor id, which the log is deliberately written without. `log_format utm` carries
+no `$remote_addr`, matching the property `rebound-app/telemetry.py` maintains for
+prediction rows.
+
+#### Adding a campaign link
+
+Short links live in the `$shortlink` map at the top of `deploy/nginx.conf`, so a post
+carries `postuptothe.net/go/li-rebound` rather than a URL with four parameters glued on.
+Add a line, reinstall the config, reload:
+
+```nginx
+/go/li-nextpost  "/blog/posts/next-post.html?utm_source=linkedin&utm_medium=social&utm_campaign=next-post";
+```
+
+```bash
+sudo cp ~/ReboundWebApp/deploy/nginx.conf /etc/nginx/sites-available/postuptothe
+sudo nginx -t && sudo systemctl reload nginx
+python3 scripts/utm.py links     # confirms each target actually exists in site/
+```
+
+The redirect hop carries no `utm_source`, so it is not logged; the landing request the
+browser follows it with is. That is one line per click, not two. Raw
+`?utm_source=…` URLs work exactly the same way and need no config change — the short
+links are a convenience for what gets pasted, not a requirement.
+
 ## 7. HTTPS (Let's Encrypt)
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -500,6 +576,10 @@ sudo systemctl restart rebound
 > what picks the backend up. A pull with no rsync leaves the box running exactly what it
 > was running before, with a git tree that says otherwise — which is the confusing version
 > of this mistake rather than the loud one.
+
+> **Neither rsync line touches nginx.** `deploy/nginx.conf` is installed by hand (step 6),
+> so a change to it — a new `/go/` campaign link, say — needs its own `cp` + `nginx -t` +
+> `systemctl reload nginx`. See "Adding a campaign link" in 6a.
 
 Note `--exclude models`: this redeploys the *app*, not the weights, and deliberately will
 not clobber the bundles already on the box. New weights need the step 5b copy-in again —

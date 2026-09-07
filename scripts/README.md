@@ -175,3 +175,42 @@ deployed separately (see `DEPLOY.md`).
    sudo password mid-sync.
 
 The macOS-bundled `rsync` (openrsync) is enough — the script sticks to flags it supports.
+
+## Campaign tracking (`utm.py`)
+
+Which post sent which visitor, with no analytics vendor and no JavaScript on the page. A
+UTM tag is just query string; `deploy/nginx.conf` writes the tagged requests to their own
+tab-separated log, and this script reads it off the box over SSH — same host and key as
+`publish.sh`, from the same `publish.env`.
+
+```bash
+python3 scripts/utm.py links                        # the links to paste into a post
+python3 scripts/utm.py report                       # hits by source / medium / campaign
+python3 scripts/utm.py report --by source,day       # ...per day
+python3 scripts/utm.py report --by page,status      # where they landed, and what 404'd
+python3 scripts/utm.py report --since 2026-09-01    # a launch window
+python3 scripts/utm.py raw --source linkedin --agents
+python3 scripts/utm.py report --file ./utm.tsv      # a local copy, no SSH
+```
+
+Group by any of `source`, `medium`, `campaign`, `page`, `day`, `referer`, `status`;
+`--json` for piping. Stdlib only, no dependencies.
+
+**Preview crawlers are excluded by default.** LinkedIn and Twitter fetch a shared URL
+themselves to build the card, using the same tagged link a person would, so on a post
+nobody clicks they are the entire "audience". The report says how many it dropped;
+`--include-bots` puts them back.
+
+**Sharing a new post.** Add a line to the `$shortlink` map at the top of
+`deploy/nginx.conf`, reinstall the config on the box, then `utm.py links` — it reads the
+slugs from that map (so it cannot print a link nginx 404s) and warns if a target page
+does not exist in `site/`. Raw `?utm_source=…` URLs work identically with no config
+change; the short links just keep what you paste short.
+
+One-time box setup — the logrotate policy and `adm` group membership — is in DEPLOY.md
+step 6a. Without it the log ages out after 14 days and the fetch gets permission denied.
+
+**What it cannot tell you:** a UTM tag marks the landing request and nothing after it, so
+there is no "and then they read X". That would need a per-visitor id, which the log is
+written without on purpose — `log_format utm` carries no IP, matching what
+`rebound-app/telemetry.py` does for prediction rows.
