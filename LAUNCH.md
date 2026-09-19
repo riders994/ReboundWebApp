@@ -22,12 +22,11 @@ traffic is the traffic that answers how far real usage sits from the corpus the
 
 ## 2. Dev notes currently visible to visitors
 
-All three render as dashed boxes on public pages.
+Both render as dashed boxes on public pages.
 
 | File | Line | What |
 |---|---|---|
 | `site/projects/rebounding.html` | 190 | "Running locally? Start the Flask app…" — on the flagship demo page |
-| `site/blog/posts/building-the-rebound-predictor.html` | 31 | "TODO: this is a starter draft — edit it into your own voice." |
 | `site/blog/index.html` | 39 | Visible `<li>`: "TODO: add more posts under `blog/posts/`…" |
 
 ## 3. Starter copy still in place

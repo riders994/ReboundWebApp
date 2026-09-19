@@ -227,6 +227,20 @@ img { max-width: 100%; display: block; }
 .prose pre code { background: none; padding: 0; }
 .prose figure { margin: 1.6rem 0; }
 .prose figcaption { font-size: .85rem; color: var(--fg-faint); text-align: center; margin-top: .5rem; }
+.prose blockquote {
+  margin: 1.4rem 0; padding: .2rem 0 .2rem 1.1rem;
+  border-left: 3px solid var(--accent); font-style: italic;
+}
+/* Result tables run wider than the prose column; they scroll in their own box
+   rather than pushing the page sideways on a phone. */
+.prose .table-scroll { overflow-x: auto; margin: 1.4rem 0; }
+.prose table { border-collapse: collapse; font-size: .88rem; min-width: 100%; }
+.prose th, .prose td {
+  padding: .45rem .7rem; border-bottom: 1px solid var(--border);
+  text-align: left; vertical-align: top; color: var(--fg-soft);
+}
+.prose th { color: var(--fg); font-weight: 600; white-space: nowrap; }
+.prose tbody tr:hover { background: var(--bg-soft); }
 
 /* ---- resume -------------------------------------------------------------- */
 .resume-item { padding: 1.2rem 0; border-bottom: 1px solid var(--border); }

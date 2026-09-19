@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Building the NBA Rebound Predictor — Rohan Vahalia</title>
-  <meta name="description" content="How the rebound predictor works: a movement model, engineered features, and a grouped-softmax ranker.">
+  <meta name="description" content="Predicting who comes down with a rebound, from tracking data alone — no player metadata, no reputation, just where everyone is and how they move.">
   <link rel="stylesheet" href="../../assets/css/main.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✍️</text></svg>">
 </head>
@@ -26,90 +26,834 @@
   <article class="wrap section prose">
     <p class="eyebrow">2026-08-19 · Machine learning</p>
     <h1>Building the NBA Rebound Predictor</h1>
-    <p class="lead">A walk through how the interactive rebound tool works, from a court doodle to a probability.</p>
+    <p class="lead">Predicting who comes down with a rebound, from tracking data alone — no player metadata, no reputation, just where everyone is and how they move.</p>
 
-    <p class="todo">TODO: this is a starter draft — edit it into your own voice.</p>
+<h2>Overview</h2>
+<p>Inspired by a story about Dennis Rodman, who Isiah Thomas described in a
+<a href="http://www.businessinsider.com/dennis-rodman-basketball-genius-2014-3" rel="noopener">2011 interview</a>
+as studying the rotation of every teammate's shot:</p>
+<blockquote>
+<p>"He knew the rotation of every person that shot on our team — if it spins sideways,
+where it would bounce, how often it would bounce left or right. He had rebounding
+down to a science, and I never heard anyone think or talk about rebounding and
+defense the way he could break it down."</p>
+</blockquote>
+<p>If Rodman could learn it, a model should be able to. This project models rebounds
+purely from positional data, deliberately ignoring who the players are, to isolate
+how much of rebounding is just position and movement.</p>
+<p>I walk through the model in <a href="https://www.youtube.com/watch?v=n_c0VYqjBKc" rel="noopener">a talk on YouTube</a>.</p>
+<h2>Status</h2>
+<p>The 2017 pipeline was Python 2 and no longer ran; the 2020 port on <code>rewrite-pd</code> was
+abandoned half-finished. The extraction pipeline has been rebuilt as the
+<code>rebounding</code> package on Python 3, with the correctness problems described below
+fixed and a test suite over a committed sample game. The rebounder model has been
+rebuilt on top of it: 29.8% top-1 from the inputs the web app can actually supply,
+against 26.8% for the model family it replaces.</p>
+<p><strong>The rebounder is buildable in one command.</strong> <code>python -m rebounding.cli train</code> fits
+it and writes <code>FinalModel.pkl</code> — the model, the fitted <code>ShotPriors</code>, the served
+feature list in fitted order, and the provenance to identify the file later. It takes
+about eighteen seconds. The shipping fit uses train+val and scores <strong>29.7% top-1</strong> on
+the untouched test games; every ladder number below is the train-only fit, which is
+what keeps the regimes comparable.</p>
+<p><code>--regime</code> picks which of the project's three models to build. <code>served</code> is the web
+app's, restricted to what the UI can supply; <code>all</code> is the feature-rich source of
+truth, which scores <strong>37.8%</strong> and which <code>rebounding.serve</code> refuses to serve because
+its features do not exist at prediction time. The 8.0 points between those two is the
+budget for the third model.</p>
+<p><strong>The movement model now lives here too.</strong> <code>python -m rebounding.cli train-movement</code>
+writes <code>MovementModel.pkl</code> — a set transformer over the ten players that predicts where
+they will be when the ball reaches the rim, and the replacement for the 2017 <code>posnn.h5</code>.
+It is a <em>generative</em> model: it samples whole coherent scenes rather than predicting one
+position per player, which is what the app should draw and what the old one could not
+do. See <em>The movement model</em> below for what that changed and what it did not.</p>
+<p><strong>The app calls one function.</strong> <code>rebounding/serve.py::predict</code> takes ten placed
+positions, which team is attacking and who shot, and returns a probability per player
+in the caller's own order. It reproduces the training path's 27 features to 0.0 maximum
+absolute difference on real shots, which is the property the web app never had: there
+is now exactly one definition of every feature, and it lives here.</p>
+<p><strong>The weights are deliberately not committed.</strong> <code>.gitignore</code> still excludes <code>*.pkl</code>
+and <code>*.h5</code>, and the artifact reaches the web app host by scp rather than through git.
+That is a choice this time rather than the accident that lost the 2017 model, and it
+is why the bundle carries its own provenance: <code>cli describe --model FinalModel.pkl</code>
+answers "which model is on the box?" from the file itself. <code>MovementModel.pkl</code> ships the
+same way and answers the same question. The 2017 movement model (<code>posnn.h5</code>) and its
+normaliser (<code>msd.pkl</code>) survive only in the companion web app repo,
+<a href="https://github.com/riders994/ReboundWebApp" rel="noopener">riders994/ReboundWebApp</a>, and are now
+superseded rather than needed — the replacement carries its normalisation inside the
+bundle, so there is no second file to keep in step with the weights.</p>
+<h2>Data</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>source</th>
+<th>what</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>STATS SportVU</td>
+<td>player and ball positions at 25 Hz, 636 games of 2015-16</td>
+</tr>
+<tr>
+<td>Basketball-Reference play-by-play</td>
+<td>shot and rebound events</td>
+</tr>
+</tbody>
+</table></div>
+<p>See <a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/data/MANIFEST.md" rel="noopener"><code>data/MANIFEST.md</code></a>. The SportVU feed was withdrawn in 2016
+and the NBA moved to Second Spectrum in 2017-18, so this corpus cannot be extended —
+about 60k rebounds is the hard ceiling, which constrains how large a model is
+sensible.</p>
+<p>The play-by-play source moved too. <code>stats.nba.com/stats/*</code> no longer answers: it
+accepts the connection and holds it open until timeout, from a logged-in browser
+session as readily as from a script. Its siblings are gone as well — <code>data.nba.net</code>
+does not resolve and <code>cdn.nba.com</code>'s live feed 403s a 2015-16 game. Events now come
+from Basketball-Reference via <a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/rebounding/data/bref.py" rel="noopener"><code>rebounding/data/bref.py</code></a>,
+which emits the same frame the NBA feed did, so pairing and everything after it are
+unchanged. <code>pbp.py</code> keeps the parsing and pairing but no longer fetches: its
+<code>fetch()</code> reads the disk cache and raises on a miss.</p>
+<p>One game — the sample game — still has a cached NBA payload from before the shutoff,
+and <code>tests/test_bref.py</code> uses it to hold the two sources to each other. Over its 106
+misses, shooter, shooting team, rebounding team, blocker and team-rebound flag agree
+<strong>100%</strong>; clocks agree within one second; two rebounds (1.9%) are credited to
+different players, both times to a teammate, which is a scoring difference between
+the feeds rather than a parse error. End to end the replacement is marginally the
+better source, because it states a shot distance on layups and dunks where the NBA
+text omits one:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>shots paired</th>
+<th>median error</th>
+<th>within 3 ft</th>
+<th>distance stated</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NBA feed</td>
+<td>78/106</td>
+<td>1.24 ft</td>
+<td>82%</td>
+<td>94.3%</td>
+</tr>
+<tr>
+<td>Basketball-Reference</td>
+<td>78/106</td>
+<td>1.00 ft</td>
+<td>83%</td>
+<td>98.1%</td>
+</tr>
+</tbody>
+</table></div>
+<h2>Pipeline</h2>
+<pre><code>rebounding/
+  constants.py        court geometry, single source of truth
+  data/
+    sportvu.py        tracking JSON -&gt; numpy arrays + ball features
+    pbp.py            play-by-play -&gt; shots paired with their rebounds
+    bref.py           Basketball-Reference pages -&gt; the same frame pbp.py returns
+    court.py          folding full court onto the attacking half
+    pairing.py        locating each play-by-play shot in the tracking data
+    features.py       per-shot, per-player features in canonical slot order
+    derived.py        relative and shot-context features, computed from the frame
+    build.py          bulk build across games
+  models/
+    baselines.py      slot prior and nearest-to-rim, the floors
+    conditional_logit.py  grouped softmax over the ten players
+    boosted.py        the same loss with a tree ensemble for a score function
+    forest.py         per-row random forest, reproducing the 2017 shape
+  eval/
+    split.py          chronological game-level train/val/test
+    metrics.py        top-1, top-3, MRR, log loss
+    baseline.py       the ladder: every model in every feature regime
+  cli.py
+</code></pre>
+<pre><code class="language-bash">uv venv &amp;&amp; uv pip install -e &quot;.[dev]&quot;
+pytest
 
-    <h2>The idea</h2>
-    <p>
-      Give the model ten players standing on a half-court at the instant a shot goes up, and ask a
-      simple question: who grabs the rebound? You place five offensive and five defensive players,
-      mark the shooter, and hit run. The tool returns a probability for each player and animates them
-      to where the model thinks they'll end up.
-    </p>
-
-    <h2>Two models, in sequence</h2>
-    <p>
-      There are two learning steps. First a <strong>movement model</strong> takes the pre-shot
-      positions and samples where all ten players end up when the ball comes off the rim —
-      rebounding is about movement, not just where you start. Then those positions, plus a stack of
-      engineered features, go to a <strong>ranker</strong> that outputs a rebound probability per
-      player.
-    </p>
-    <p>
-      The ranker scores the ten players together rather than one at a time. That sounds like a
-      detail and isn't: exactly one of them gets the rebound, so it's a ranking problem over a group
-      of ten, not ten independent yes/no questions. Training it under a grouped softmax means the
-      probabilities come out as one distribution that already sums to one.
-    </p>
-    <p>
-      The movement model predicts a <em>distribution over whole scenes</em> rather than one position
-      per player, which took me a while to appreciate as the right shape for the problem. A big man
-      might crash the glass or might leak out in transition. Those are two futures. Predicting one
-      number per player forces the model to answer "somewhere in between", which is a place he never
-      actually stands. Sampling complete scenes lets it commit to one story at a time — so the demo
-      draws a different plausible outcome each time you re-run the same play.
-    </p>
-
-    <h2>What the 2017 version did</h2>
-    <p>
-      The original was a small <strong>Keras</strong> network predicting one post-shot point per
-      player, eight hand-built features, and a <strong>scikit-learn random forest</strong> scoring
-      each player on his own. Because nothing told that forest only one player could win, its ten
-      outputs didn't sum to anything in particular, and the app divided them by their total to make
-      a distribution out of them. That worked, in the sense that it produced numbers.
-    </p>
-    <p>
-      Rebuilding it in 2026 replaced both stages, and the two changes that mattered most were the
-      ones above: score the group jointly, and sample scenes instead of averaging them. The third
-      was organisational — every feature definition moved into the modelling repo, so the web app no
-      longer recomputes its own copy at request time. That duplication is the kind of thing that
-      rots quietly, and by the time I came back to it, it had.
-    </p>
-
-    <h2>The features that matter</h2>
-    <p>Twenty-seven features per player now, still trying to capture rebounding intuition:</p>
-    <ul>
-      <li><strong>Distance and angle to the hoop</strong> — position relative to the rim, at <code>(41.75, 25)</code> in court coordinates.</li>
-      <li><strong>Shot context</strong> — how far out the shot was taken, each player's bearing relative to it, and an estimate of how long the ball is in the air.</li>
-      <li><strong>Traffic</strong> — distance to the nearest opponent, and how many bodies are inside six and ten feet.</li>
-      <li><strong>Box-outs</strong> — who is screening whom off the glass, counted in both directions.</li>
-      <li><strong>Relative standing</strong> — distance to the rim compared against the best-placed player, the nearest teammate, and the group average. Being twelve feet out means nothing until you know where the other nine are.</li>
-      <li><strong>Identity</strong> — offense or defense, shooter or not, and listed position.</li>
-    </ul>
-
-    <h2>Does it work?</h2>
-    <p>
-      It picks the actual rebounder 29.7% of the time on held-out shots, and has him in its top three
-      66.8% of the time. With ten players on the floor, guessing gets you 10%. I've made my peace
-      with that ceiling: a tip-out or a carom off someone's shoulder isn't in the pre-shot positions,
-      and no model is going to find it there.
-    </p>
-    <p>
-      The single most surprising thing I found rebuilding this: telling the model who's a guard and
-      who's a centre is worth 2.8 points of top-1. Strip the positions out and the same model drops
-      to 26.9%. That's why the demo makes you pick positions instead of just dropping dots — the
-      earlier version defaulted everyone to "forward" and quietly gave up those points. Worth saying
-      that 29.7% was measured on real lineups, though: if you sketch five centres, you're outside
-      anything the training data has seen.
-    </p>
-
-    <h2>The front-end</h2>
-    <p>
-      The court is a D3.js sketch over an SVG half-court. Clicks drop players, a POST sends their
-      coordinates to a small Flask service, and the response drives a color gradient from blue (unlikely)
-      to red (most likely) with the top rebounder outlined.
-    </p>
+python -m rebounding.cli inspect --game data/7zips/01.01.2016.CHA.at.TOR.7z
+python -m rebounding.cli build --games data/7zips --out data/frame.parquet
+</code></pre>
+<p><code>build</code> needs play-by-play. It reads a cached NBA payload from <code>--pbp-cache</code> when one
+exists for that game and otherwise fetches from Basketball-Reference into
+<code>--bref-cache</code> (default <code>data/bref</code>, gitignored). Fetching is rate limited to 20
+requests a minute, which their terms ask for and they enforce with a temporary ban,
+so the first full run over 636 games takes about 35 minutes. Later runs are offline.</p>
+<h2>What was wrong with the old pipeline</h2>
+<p>Each of these is now covered by a regression test.</p>
+<p><strong>Court folding destroyed left/right.</strong> The whole of the orientation logic was
+<code>abs(PlayerX - 47)</code>. Folding x alone is a <em>reflection</em>, so the same play run at
+either end landed on opposite sides of the folded half court, superimposing
+left-wing and right-wing shots. Worse, it was applied per player using that player's
+own x, so the attacking basket was never actually determined: a defender who hadn't
+crossed half court got mirrored into the front court and recorded 34.75 ft from the
+rim when he was really 48.75 ft away. The fix is a 180° rotation for the left half,
+with the basket resolved once per shot from the ball at the rim.</p>
+<p><strong>Shot-to-rebound pairing was unvalidated and often wrong.</strong> <code>findShot</code> searched
+backward for "ball started rising", which fires on every dribble bounce, every pass
+apex, and every rattle of the ball on the rim — 9,073 times in the sample game
+against roughly 176 shots — with no bound on how far back it looked. When two shots
+resolved to the same tracking frame, the <code>rimErr</code> fallback substituted an arbitrary
+moment with no rim condition at all, and stored empty results that became NaN rows.
+Nothing measured whether any of it worked.</p>
+<p>It is measurable now, by comparing the tracking-derived release distance against the
+distance stated in the play-by-play text. On the sample game's 95 unblocked misses:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>paired</th>
+<th>median error</th>
+<th>within 3 ft</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>original logic, ported as-is</td>
+<td>70</td>
+<td>10.06 ft</td>
+<td>29%</td>
+</tr>
+<tr>
+<td>current</td>
+<td>78</td>
+<td><strong>1.31 ft</strong></td>
+<td><strong>84%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Pairing on the game clock let shots span a dead ball.</strong> This one was a fault in the
+<em>rebuilt</em> pipeline, not the old one, and it is the reason the corpus had a tail of
+impossible shots. Release candidates were bounded by 0.3–3.0 s of <strong>game clock</strong>, and
+the game clock stops: on a whistle, a timeout, a review. A release and a rim contact
+either side of a stoppage can be thirty seconds apart in real time while the clock
+shows two, so the bound accepted them and the shot was paired across the dead ball —
+with the "shooter" standing at the far end of the floor in a previous possession.</p>
+<p>Every pairing that put a shooter more than 60 ft from the rim was one of these. Over 90
+games there were 13 of them, median wall-clock flight <strong>36 s</strong>, which the play-by-play
+describes as layups and short jumpers from 1 to 26 ft. They were not full-court heaves;
+there are none in the corpus, because a buzzer miss is never credited a rebound and so
+never pairs.</p>
+<p>The moments already carry a wall-clock <code>Timestamp</code>, so the fix is to apply the same
+bound to real time (<code>MAX_WALL_FLIGHT_SECONDS</code>) and to derive <code>FlightTime</code> from it. The
+game-clock interval stays recoverable as <code>ReleaseClock - RimClock</code>. For 97.8% of shots
+the two agree within 0.1 s; where they disagree, the timestamp is the one telling the
+truth about how long the ball was in the air.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>before</th>
+<th>after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>shots in the corpus</td>
+<td>42,255</td>
+<td>41,679</td>
+</tr>
+<tr>
+<td>max shot distance</td>
+<td>95.5 ft</td>
+<td><strong>62.0 ft</strong></td>
+</tr>
+<tr>
+<td>shooters &gt; 60 ft</td>
+<td>118</td>
+<td><strong>2</strong></td>
+</tr>
+<tr>
+<td>shooters &gt; 40 ft</td>
+<td>139</td>
+<td>17</td>
+</tr>
+</tbody>
+</table></div>
+<p>940 shots are now dropped as <code>release_only_across_a_stopped_clock</code>; 576 of those had
+been reaching training, the rest were already being caught downstream by the
+substitution check. None were recovered — where the clock lies there is usually no
+valid alternative release, so the shot is dropped rather than repaired. Accuracy is
+unchanged within noise in every regime, which is the expected result for a fix that
+removes 1.4% of the data: it buys correctness, not points.</p>
+<p><strong>Flight time saturates, and no polynomial says so.</strong> With those points gone,
+<code>flight_hat</code>'s quadratic no longer had anything dragging its tail up: it peaked at
+27.9 ft and fell away, predicting that a 48.7 ft shot — the furthest a user can place a
+shooter on the app's canvas — hangs 1.46 s, less than a ten-footer, and going negative
+past 92 ft. The measured curve climbs to 2.33 s by 30 ft and then flattens, because past
+that range the shot is taken on a flatter, harder trajectory.</p>
+<p>Raising the degree does not help, and is recorded here so nobody retries it: degrees 2,
+3, 4 and 6 all sit within half a millisecond of each other on validation RMSE, every one
+is non-monotone, and the higher ones are wilder in the tail — 5.17 s at 62 ft for the
+quartic, 9.46 s for the sextic. Saturating forms (<code>log(1+d)</code>, <code>sqrt(d)</code>, <code>1 - exp(-d/k)</code>)
+are monotone but fit no better and the first two keep climbing where the data flattens.
+<code>predicted_flight</code> holds the peak instead, which is monotone, scores marginally <em>better</em>
+on validation than the unclamped fit (0.4035 against 0.4037), and lands within 0.05 s of
+the measured plateau.</p>
+<p><strong>Other fixes.</strong> 44% of shots lost their description, because only
+<code>HOMEDESCRIPTION</code> was kept. 11% of rebounds — the team rebounds — were silently
+discarded, biasing the training set toward clean uncontested boards. Transition
+flags were encoded as "clock, or 0", so <code>RimStart &gt;= t</code> matched an entire quarter
+whenever a shot went up at 0:00. <code>.shift()</code> ran across quarter boundaries.
+<code>massunpack</code> overwrote its own <code>run</code> method with a float and wrapped everything in
+<code>except Exception: pass</code>, so a run that lost a third of the season looked identical
+to one that lost nothing. The whole game's tracking data was held as Python lists
+inside DataFrame cells.</p>
+<p><strong>Velocity was never computed at all.</strong> The pipeline extracted two isolated frames
+per shot and nothing in between, so both models were being asked to reason about
+movement from a pair of still photographs.</p>
+<p>This was originally written down as the most likely single reason the movement model
+underperformed. That guess is now measured and it was too strong. Velocity is worth
+1.9 points of top-1 to the rebounder, and a player's release-time heading predicts his
+rim-time position only about four tenths of a second into the flight — extrapolating
+along it for the full flight is worse than assuming he never moves. Velocity was
+missing and is worth having, but its absence does not account for the movement model's
+behaviour; the L2 objective on a multimodal target does. See <em>Where the gains came
+from</em> below.</p>
+<h2>Modelling</h2>
+<h3>Results</h3>
+<p><code>python -m rebounding.cli baseline --forest --on test</code>, on a chronological game-level
+split (441 train / 95 val / 95 test games), team rebounds excluded, scored per shot as
+top-1 of ten players. Feature selection and hyperparameters were chosen on validation;
+the table below is the single read on the held-out test split.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>regime</th>
+<th>what it knows</th>
+<th>slot prior</th>
+<th>nearest to rim</th>
+<th>conditional logit</th>
+<th>random forest</th>
+<th>boosted softmax</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>static</strong></td>
+<td>ten positions</td>
+<td>24.0%</td>
+<td>23.2%</td>
+<td>26.4%</td>
+<td>26.8%</td>
+<td><strong>27.6%</strong></td>
+</tr>
+<tr>
+<td><strong>served</strong></td>
+<td>+ derived features</td>
+<td>24.0%</td>
+<td>23.2%</td>
+<td>27.7%</td>
+<td>29.2%</td>
+<td><strong>29.8%</strong></td>
+</tr>
+<tr>
+<td>release</td>
+<td>+ real velocity</td>
+<td>24.0%</td>
+<td>23.2%</td>
+<td>27.1%</td>
+<td>28.9%</td>
+<td>28.6%</td>
+</tr>
+<tr>
+<td>release+derived</td>
+<td>both</td>
+<td>24.0%</td>
+<td>23.2%</td>
+<td>29.7%</td>
+<td><strong>30.9%</strong></td>
+<td>30.8%</td>
+</tr>
+<tr>
+<td>rim</td>
+<td>rim-time positions</td>
+<td>24.0%</td>
+<td>33.7%</td>
+<td>34.8%</td>
+<td>35.6%</td>
+<td><strong>35.8%</strong></td>
+</tr>
+<tr>
+<td>all</td>
+<td>everything</td>
+<td>24.0%</td>
+<td>33.7%</td>
+<td>35.9%</td>
+<td><strong>37.7%</strong></td>
+<td>37.4%</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>static</code> is what the web app can supply — a user places ten dots. <code>served</code> adds the
+derived features, which need nothing further from the user. The two rows below them
+add a release velocity the app has no way to collect, and are there to price it.</p>
+<p>Four things fall out of this.</p>
+<p><strong>The servable model went from 26.8% to 29.8%</strong> without asking the UI for anything new.
+Roughly a third of that is the model and two thirds the features; §<em>Where the gains
+came from</em> below splits it.</p>
+<p><strong>The train/serve gap is 6.0 points</strong> (35.8% at rim time against 29.8% from what the
+app can supply). That is the entire budget a movement model has to earn back. It was
+8.2 points before this round of work and it shrinks every time the release-time model
+improves, which is worth stating plainly: effort spent on the rebounder and effort
+spent on the movement model are drawn from the same account, and the rebounder is the
+cheaper of the two.</p>
+<p><strong>Nothing separates the top three models by much.</strong> Boosted softmax, random forest and
+— with the derived features in hand — the conditional logit land within about 1.5
+points of each other, and the boosted model does not win every row. On 5,690
+validation shots an unpaired standard error is 0.6 points, so differences under about
+1.2 points are not distinguishable at all; the comparisons quoted below use a paired
+bootstrap over games, which is considerably tighter. The features moved the number.
+The model choice mostly did not.</p>
+<p><strong>The gap between top-1 and top-3 is large and stable</strong> — 29.8% against 66.7% in the
+served regime. The model is ranking sensibly and failing to separate the leaders,
+which is what one would expect of an event with a genuinely random component. A tool
+that narrows ten players to three is right two times in three.</p>
+<p><strong>The 2017 figure of 86% top-1 does not survive contact.</strong> Reproducing that model
+family and scoring it three ways on the same data:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>metric</th>
+<th>value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>per-shot top-1</td>
+<td>35.8%</td>
+</tr>
+<tr>
+<td>per-row binary accuracy</td>
+<td>90.1%</td>
+</tr>
+<tr>
+<td>per-row accuracy, predicting "nobody" for all ten</td>
+<td>90.0%</td>
+</tr>
+<tr>
+<td>per-row AUC</td>
+<td>0.829</td>
+</tr>
+</tbody>
+</table></div>
+<p>86% is not reachable as top-1 from these features, sits <em>below</em> the 90% that
+predicting "nobody rebounds" scores by construction, and lands close to the 0.829
+per-row AUC. The most likely reading is that it was a per-row metric — AUC or
+accuracy over the ten-times-longer row table — rather than the per-shot question the
+app actually asks. The 2017 code is gone, so this can't be confirmed directly; the
+weights survive only in the web app repo. Treated as a per-row number it is
+unremarkable, and nothing in the current data supports quoting 86% as top-1.</p>
+<h3>Where the gains came from</h3>
+<p><strong>The features, mostly, and the relative ones above all.</strong> Every feature in the
+original pipeline described a player on his own — his coordinates, his distance to the
+rim, his angle. Rebounding is a contest between ten people, so the quantities that
+decide it are comparisons: who is inside whom, who has space, how a player ranks
+against the other nine rather than how many feet he stands from the basket.
+<a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/rebounding/data/derived.py" rel="noopener"><code>rebounding/data/derived.py</code></a> adds those, and they are a
+pure function of the ten positions, so the web app can compute every one of them from
+what a user already places on the court.</p>
+<p>The importance ranking makes the point better than the accuracy table does. In the
+served regime the model puts 31% of its gain on <code>n_opp_inside</code> — how many opponents
+are nearer the basket than this player — and another 11% on <code>dist_minus_mean</code>. Raw
+<code>pre_dist</code>, the feature the old model leaned on, drops out of the top ten entirely
+once the same information is present in relative form.</p>
+<p><strong>The model change is real but second-order.</strong> Three ways of getting a tree ensemble
+to answer "which of these ten", on the same release-time features:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>model</th>
+<th>validation top-1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>random forest, per-row binary, renormalised afterwards</td>
+<td>27.6%</td>
+</tr>
+<tr>
+<td>LightGBM <code>lambdarank</code>, groups of ten</td>
+<td>28.0%</td>
+</tr>
+<tr>
+<td>LightGBM, grouped softmax</td>
+<td>28.5%</td>
+</tr>
+</tbody>
+</table></div>
+<p>which is the ordering
+<a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/rebounding/models/conditional_logit.py" rel="noopener"><code>conditional_logit.py</code></a> predicts: a per-row
+binary fit never sees the constraint that exactly one of the ten is the rebounder, and
+<code>lambdarank</code> optimises a ranking surrogate rather than the likelihood. Matching the
+loss to the metric is worth about a point.
+<a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/rebounding/models/boosted.py" rel="noopener"><code>boosted.py</code></a> is that grouped softmax with a tree
+ensemble for a score function.</p>
+<p><strong>Velocity is worth less than it looks, and says something.</strong> Over a shot's flight
+players travel 7.67 ft on average. Extrapolating each along his release velocity lands
+8.46 ft from the truth — <em>worse than assuming he never moves</em>, at 8.41 ft. Damped by
+the best-fitting factor of 0.38 it improves to 6.49 ft. Release-time velocity is worth
+about four tenths of a second of movement and nothing after that, because what a
+player does next is dominated by an intention his current heading does not reveal.
+That is the strongest argument in this repo for a generative scene model over a
+kinematic one, and equally the reason no cheap version of one will do.</p>
+<h3>The movement model</h3>
+<p>The third of the three, and the one that had the most room in it. It predicts where the
+ten players will be when the ball reaches the rim, from where they were at release —
+which is both the app's whole interaction (place ten dots, press run, watch) and the
+feeder for the <code>served+movement</code> regime. <code>python -m rebounding.cli train-movement</code> fits
+it and writes <code>MovementModel.pkl</code>.</p>
+<p><strong>It is a set model, and the set part is not decoration.</strong> Ten players with no natural
+order, whose interaction <em>is</em> the phenomenon — a box-out is a pairwise relation, and a
+model that sees one player at a time cannot represent one. The encoder is four
+self-attention layers with no positional encoding, so it is permutation equivariant by
+construction: hand the players over in any order and the predictions follow them. The
+canonical slot order is a tensor-layout convenience, not information this model is
+allowed to lean on, and there is a test that says so.</p>
+<p><strong>What broke the 2017 version was the loss, not the architecture.</strong> An offensive player
+fourteen feet out either crashes the glass or leaks out in transition; over the training
+games offence closes on the rim 45.7% of the time, and inside a single starting band the
+change in rim distance runs from −12.5 ft at the 5th percentile to +12.6 ft at the 95th.
+Squared error on a target like that returns the conditional mean, which is neither
+future. So the same encoder carries three interchangeable heads, and the comparison
+isolates the objective rather than the network:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>head</th>
+<th>what it predicts</th>
+<th>error</th>
+<th>minADE player/scene</th>
+<th>cov50</th>
+<th>cov90</th>
+<th>contacts</th>
+<th>crash off/def</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>truth</em></td>
+<td><em>what happened</em></td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>0.55</td>
+<td>44.8% / 69.0%</td>
+</tr>
+<tr>
+<td><em>stay put</em></td>
+<td><em>nothing moves</em></td>
+<td>7.52 ft</td>
+<td>7.52 / 7.52</td>
+<td>0%</td>
+<td>0%</td>
+<td>0.41</td>
+<td>0% / 0%</td>
+</tr>
+<tr>
+<td><em>damped velocity</em></td>
+<td><em>straight lines</em></td>
+<td>6.25 ft</td>
+<td>6.25 / 6.25</td>
+<td>0%</td>
+<td>0%</td>
+<td>0.52</td>
+<td>51.0% / 58.4%</td>
+</tr>
+<tr>
+<td><code>point</code></td>
+<td>one displacement, L2</td>
+<td>5.01 ft</td>
+<td>5.01 / 5.01</td>
+<td>0%</td>
+<td>0%</td>
+<td>0.77</td>
+<td>50.8% / 84.4%</td>
+</tr>
+<tr>
+<td><code>mixture</code></td>
+<td>6 Gaussians per player, NLL</td>
+<td><strong>4.88 ft</strong></td>
+<td><strong>1.78</strong> / 4.73</td>
+<td>44.0%</td>
+<td>82.4%</td>
+<td>0.65</td>
+<td>44.9% / 69.6%</td>
+</tr>
+<tr>
+<td><code>cvae</code></td>
+<td>one latent per scene, ELBO</td>
+<td>4.94 ft</td>
+<td>1.88 / 4.83</td>
+<td><strong>47.0%</strong></td>
+<td><strong>83.1%</strong></td>
+<td><strong>0.56</strong></td>
+<td>46.3% / 70.2%</td>
+</tr>
+</tbody>
+</table></div>
+<p>Test split, 5,756 shots, 20 samples each. <code>contacts</code> is pairs of players inside two feet
+of each other per scene, and the row to compare it against is <em>truth</em>, not zero — real
+basketball has contact. <code>cov50</code>/<code>cov90</code> should read 50% and 90% for a calibrated model.
+The damped-velocity row is a reference and not a candidate: it needs a release velocity
+the web app has no way to collect.</p>
+<p>Every column but <code>error</code> is a Monte-Carlo estimate over 20 draws, so read the last digit
+as noise. Re-scoring the shipped bundle at five seeds moves <code>minADE</code> by 0.01 ft, <code>cov50</code>
+and <code>cov90</code> by 0.3 points, and <code>contacts</code> by 0.007 — small enough not to change any
+reading above, and large enough that two of the figures quoted here (<code>cov90</code> 83.1%,
+<code>contacts</code> 0.56) sit at the flattering edge of that range rather than in its middle.
+<code>error</code> involves no sampling and is exact at 4.938 ft.</p>
+<p>Four readings.</p>
+<p><strong>The architecture pays for itself before any head does.</strong> <code>point</code> is the 2017 shape and
+lands 5.01 ft from the truth <em>using no velocity at all</em>, against 6.25 ft for
+extrapolating a damped real one. Players travel 7.52 ft over a flight, so staying put
+costs 7.52 ft and this is a real reduction rather than a shrunken guess.</p>
+<p><strong>And it drifts, exactly where the argument says it will.</strong> <code>point</code> sends defenders
+rimward on 84.4% of shots against a real 69.0%, and produces 40% more player collisions
+than the corpus contains. That is a model averaging two opposite intentions, and it is
+the failure a user watches happen rather than one that shows up in a table.</p>
+<p><strong>Changing only the objective fixes the drift.</strong> <code>mixture</code> is the same encoder with a
+six-component Gaussian mixture per player and an exact likelihood; its crash rates land
+on the real ones. Its minADE tells the other half: among twenty draws one lands 1.78 ft
+from the truth <em>per player</em> but 4.73 ft <em>per scene</em>, because nothing couples one
+player's choice of component to another's. Ten individually plausible players; no
+coherent arrangement.</p>
+<p><strong>The scene latent buys plausibility, not accuracy — which was not the prediction.</strong>
+<code>cvae</code> was expected to close that per-player/per-scene gap and does not (1.88 / 4.83, a
+shade worse than <code>mixture</code> on both). What it does deliver is the thing that is visible
+on screen: <strong>0.56 contacts per scene against the corpus's 0.55</strong>, the best of any head,
+and the best calibration. Diagnosing why gives the reason and the fix — the latent is
+only carrying 15.4% of the sample variance, with 12 of its 16 dimensions collapsed to
+the prior, because the KL term makes independent per-player noise the cheaper way to
+explain the data. The coupling it does produce is real: the ten players' latent-driven
+deviations correlate at 0.425. There is simply not enough of it.</p>
+<p>Loosening the KL term is the obvious fix for that collapse and it does not work.
+Refitting the same head at <code>kl_weight</code> 0.2, on validation:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>variant</th>
+<th>error</th>
+<th>minADE player/scene</th>
+<th>cov50</th>
+<th>contacts</th>
+<th>crash off/def</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>truth</em></td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>0.58</td>
+<td>45.8% / 69.3%</td>
+</tr>
+<tr>
+<td><code>cvae</code>, default</td>
+<td>4.90 ft</td>
+<td>1.89 / <strong>4.82</strong></td>
+<td>46.8%</td>
+<td>0.56</td>
+<td>46.2% / 70.2%</td>
+</tr>
+<tr>
+<td><code>cvae</code>, <code>kl_weight=0.2</code></td>
+<td>5.80 ft</td>
+<td>2.21 / 5.53</td>
+<td>47.5%</td>
+<td>0.52</td>
+<td>44.8% / 64.9%</td>
+</tr>
+</tbody>
+</table></div>
+<p>Giving the latent more room <em>widened</em> the per-scene gap rather than closing it, cost
+0.9 ft of accuracy, and pushed the defensive crash rate below the real one. Recorded so
+nobody retries it — with the caveat that it stopped at epoch 118 of 120 and had not
+plateaued, so some of that is undertraining rather than the weight being wrong. If the
+scene gap is worth another attempt, the thing to change is the decoder rather than the
+weight: most of the sampled spread is its independent per-player sigma, and a decoder
+that had to route more of the variance through the shared latent would be a sharper
+test than annealing the penalty in front of it.</p>
+<h4>What it is worth to the rebounder: almost nothing, and that is the finding</h4>
+<p>The movement model was meant to have a second job. The <code>served+movement</code> regime feeds
+its predicted rim-time positions back to the rebounder as ten extra columns, and the
+gap between what the app can supply and rim-time truth was supposed to be the budget it
+would earn back. Fitting all of it — the rebounder trained on the movement model's
+<em>predictions</em>, never on the corpus's real <code>pos_*</code>, because training on truth and serving
+forecasts is the skew that produced 2017's 86%:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>what the rebounder eats</th>
+<th>val</th>
+<th>test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>release only (<code>SERVED_FEATURES</code>)</td>
+<td>28.9%</td>
+<td>30.0%</td>
+</tr>
+<tr>
+<td>+ rim-time columns from "stay put"</td>
+<td>28.8%</td>
+<td>29.7%</td>
+</tr>
+<tr>
+<td>+ rim-time columns from the movement model</td>
+<td>29.9%</td>
+<td><strong>30.1%</strong></td>
+</tr>
+<tr>
+<td>+ the same, marginalised over 16 sampled scenes</td>
+<td>29.5%</td>
+<td>29.8%</td>
+</tr>
+<tr>
+<td>+ rim-time columns from <strong>truth</strong></td>
+<td>37.4%</td>
+<td><strong>38.1%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Read the test column; the validation column is the movement model's own early-stopping
+set and is not clean for it. The release-only row is refitted here rather than copied
+from the ladder above, and lands at 30.0% against that table's 29.8% — LightGBM under
+<code>n_jobs=-1</code> is not bit-reproducible, and 0.2 points is well inside the 0.6-point
+standard error. All five rows share the settings, which is what the comparison needs. Knowing where the ten players actually end up is worth
+<strong>8.1 points</strong>. The best forecast of where they will end up is worth <strong>0.1</strong>. The
+movement model captures about one percent of its own budget.</p>
+<p>That is not a bug in the forecast. The "stay put" row is the control and shows the ten
+extra columns carry nothing on their own; the movement model's columns are genuinely
+better than that and still buy nothing. Nor is it over-smoothing: sampled scenes have
+realistic spread — that is what the calibration and contact numbers above establish —
+and marginalising over them scores <em>worse</em>, not better. The reading that survives is
+that the predictable part of a player's next 1.9 seconds is not the part that decides
+the rebound. What the model gets right is the part that was already implied by where
+everyone was standing, which the rebounder could see for itself; what decides the board
+is the residual, and the residual is what "unpredictable" means.</p>
+<p>So the recommendation in <code>docs/webapp-handoff.md</code> §5 stands, and now has a measurement
+under it rather than a caution: <strong>run the rebounder on release-time features, and let
+the movement model drive the animation beside it rather than upstream of it.</strong> It is a
+product feature. It is not an accuracy device, and this is what it cost to find out.</p>
+<p><strong>Score it on none of this by accident.</strong> <code>rebounding/eval/movement.py</code> reports mean
+displacement error and never optimises against it, because that metric is what produced
+the drift. What it tunes on instead: whether the truth falls inside the predicted
+distribution, whether sampled scenes are physically possible — collisions and implied
+speeds, measured against the same statistics computed on real rim-time frames — and
+whether the model reproduces the crash rate rather than averaging over it.</p>
+<p><strong>Hardware was never the constraint, and in 2017 it was not the missing piece either.</strong>
+Everything above is three models trained on a 2019 laptop CPU with no GPU, over 26,733
+training shots of ten players; the longest run was 60 minutes and most of that was
+contention. What was actually missing in 2017 was permutation-equivariant layers, which
+arrived that year and were not yet usable, and a density head — which existed, and was
+not reached for.</p>
+<h3>Out of scope on purpose: who the players are</h3>
+<p>The premise is predicting a rebound <strong>from location data alone</strong>, so per-player history
+is excluded by design rather than by oversight. This is worth stating because it is not
+a null result — it works.</p>
+<p>A smoothed per-player historical rebound rate, fitted on the training games and applied
+to the later ones, is worth <strong>+1.2 points</strong> of top-1 (29.7% → 30.9%). Only about 0.3 of
+that is the position effect the model already has through <code>role</code>; the remaining ~0.9 is
+individual, separating players who share a listed position. It is measuring real
+rebounding — the highest fitted rates are Drummond (.338), Whiteside (.320) and DeAndre
+Jordan (.308), the lowest Isaiah Thomas (.076), Redick (.072) and Wiggins (.072). It
+also would not tie the app to this corpus, since any published rebound rate could be
+fed at serving time.</p>
+<p>It is still out, because "which of these ten players gets the board, knowing only where
+they stand" is the question the project exists to answer. Adding a scouting prior
+answers a different and easier one.</p>
+<p><code>role</code> — the listed-position ordinal — is the deliberate exception. It is an attribute
+of the player rather than a location, and it is worth 2.1 points (3rd of 27 by gain),
+but it was part of the original 2017 model concept and is kept for continuity with it.
+If it is ever dropped it must be <strong>removed and retrained</strong>, never defaulted: serving a
+placeholder 3.0 to a model trained on real positions scores 26.9%, worse than the 27.6%
+of an honest model that never had the feature.</p>
+<h3>What was tried and did not work</h3>
+<p>Recorded because the next person will otherwise try them again.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>idea</th>
+<th>result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>spatial target encoding: smoothed grid of "who rebounds from here", per shot-distance bucket and team</td>
+<td>−0.02 pts. Boosting over <code>pre_x</code>, <code>pre_y</code>, <code>is_offense</code>, <code>shot_dist</code> already recovers it</td>
+</tr>
+<tr>
+<td>neighbour context: attach the nearest opponent's and nearest teammate's own features to each row</td>
+<td>−0.50 pts, not distinguishable from noise</td>
+</tr>
+<tr>
+<td>hierarchical P(team) × P(player | team) instead of one softmax over ten</td>
+<td>−1.30 pts, and that one <em>is</em> significant</td>
+</tr>
+<tr>
+<td>set model: permutation-equivariant net pooling over own team and opponents, 3 blocks</td>
+<td>30.5% against the boosted model's 30.7% — a tie</td>
+</tr>
+<tr>
+<td>blending the boosted model with the conditional logit, or with the set model</td>
+<td>+0.3 pts at best, inside the noise</td>
+</tr>
+<tr>
+<td>measured flight time instead of predicted</td>
+<td>+0.23 pts, not distinguishable — so the servable version costs nothing</td>
+</tr>
+</tbody>
+</table></div>
+<p>The set model is the interesting negative. It is the architecture the rebuild plan
+proposes for the movement model, applied to the rebounder, and on 27k training shots
+it matches gradient boosting rather than beating it. Depth tells the same story from
+the other direction: 127 leaves scored a point <em>worse</em> than 63 at every learning rate
+tried. The corpus cannot grow — see <a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/data/MANIFEST.md" rel="noopener"><code>data/MANIFEST.md</code></a> — so this is
+a standing constraint, not a tuning accident. Capacity is not what is missing.</p>
+<p>What is missing is more likely information. Nothing in the current feature set knows
+the ball: its arc, its entry angle, where it actually caroms. Those need a rebuild of
+the frame from the tracking corpus rather than a better model, and only the parts of
+them a user could plausibly specify are servable.</p>
+<p><em>What follows describes the 2017 work and what replaces it.</em></p>
+<p>Two models, chained. The <strong>rebounder model</strong> predicts who gets the board from where
+everyone stands when the ball reaches the rim; a random forest was reported at 86%
+top-1, which the section above shows was almost certainly a per-row metric. The
+<strong>movement model</strong> exists because the web app can only ask a user for positions at
+<em>release</em>, so something has to predict where players will be a second later.</p>
+<p>The movement model never worked well. It was a Keras dense net doing deterministic
+point regression from one snapshot to another, one row per player. Three problems:
+no velocity input; an L2 objective on a multimodal target, which returns the
+conditional mean and so drifts every player toward the paint; and no interaction
+term, so nothing stopped two predicted players occupying the same square foot and
+box-outs were unrepresentable.</p>
+<p>There is also a train/serve skew that no amount of movement-model quality fixes: the
+rebounder was trained and evaluated on ground-truth rim-time positions but served
+predicted ones. That skew is now measured rather than argued about — 6.0 points of
+top-1 — and the honest headline number is accuracy <strong>from what the app can supply</strong>,
+29.8% for the train-only fit the ladder above compares and <strong>29.7% for the weights
+that actually ship</strong>, both on the same held-out test games.</p>
+<p>The rebounder half of the rebuild plan is done: the grouped softmax matches the
+evaluation metric directly and removes the class-weight hacks the original needed, and
+<code>features.to_tensor</code> emits the <code>(n_shots, 10, n_features)</code> form in canonical slot order
+— offense then defense, each nearest-to-rim first — which is what lets any of these
+models consume a whole shot at once.</p>
+<p>What remains is the movement half: a scene-level conditional VAE with a
+set-transformer encoder, sampling coherent futures rather than one averaged guess. Two
+results above bear on it. Its accuracy budget is 6.0 points and shrinking, so it should
+be justified as a UI feature — the predicted movement is what the app draws — rather
+than as an accuracy device; that argument is made in
+<a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/docs/webapp-handoff.md" rel="noopener"><code>docs/webapp-handoff.md</code></a>. And the fact that constant-velocity
+extrapolation is worse than assuming nobody moves says the problem it has to solve is
+real, not a matter of arithmetic on a heading.</p>
+<h2>Credits</h2>
+<p>Front end by Hayden (<a href="https://github.com/ht44" rel="noopener">@ht44</a>), in
+<a href="https://github.com/riders994/ReboundWebApp" rel="noopener">riders994/ReboundWebApp</a>.</p>
 
     <p><a href="../../projects/rebounding.html">→ Try the live demo</a></p>
   </article>

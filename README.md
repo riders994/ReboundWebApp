@@ -118,4 +118,4 @@ See [DEPLOY.md](DEPLOY.md).
 Bio + headshot, project #2–4, comedy clips/shows, blog posts — all marked with
 `TODO` in the HTML. Project thumbnails are no longer blocking: a project with no
 `assets/img/<slug>-thumb.png` shows a default cover until a real one is dropped in. The rebounding case study and blog post have been updated for the
-2026 retrain; the blog post still carries a `TODO` about putting it in your own voice.
+2026 retrain; the blog post is the ReboundingPrediction README, converted.
