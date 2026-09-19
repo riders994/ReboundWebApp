@@ -42,7 +42,7 @@
     {
       "slug": "position-predictor",
       "name": "Position Predictor",
-      "blurb": "",
+      "blurb": "Proof of concept project to see how far you can get with just numeric data. A couple other fantasy modeling projects that didn't really go anywhere.",
       "repo": "https://github.com/riders994/position_predictor",
       "webapp": null,
       "tags": [

@@ -9,7 +9,7 @@ portfolio with a small ML backend for the demo.
 site/            Static portfolio (plain HTML/CSS/JS, no build step) — nginx docroot
   index.html         landing + about
   projects/          project grid + rebounding case study & live demo
-  resume.html        resume + PDF download
+  resume.html        resume
   blog/              posts
   comedy.html        stand-up / performances
   assets/            css, js, images, svg
