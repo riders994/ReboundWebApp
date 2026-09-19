@@ -501,9 +501,11 @@ You should see `globals.sql`, one `<db>.dump` per database, and `SHA256SUMS`.
 > the same reason: a `pg_dump` contains a database's contents but not the roles that own
 > it, and restoring onto a fresh cluster with no `rebound` role fails on every `GRANT`.
 
-**On the Pi** — give it a key, then install the puller:
+**On the Pi** — install the puller:
 ```bash
-# A key of its own, so it can be revoked without touching how you SSH in by hand.
+# If the Pi already reaches the box for other jobs, skip these two lines and point
+# PG_PULL_HOST at the existing ~/.ssh/config Host block, with PG_PULL_USER= empty.
+# A key of its own is only worth it to make this job revocable on its own.
 ssh-keygen -t ed25519 -f ~/.ssh/postup-backup -C 'pg-pull from the pi'
 ssh-copy-id -i ~/.ssh/postup-backup.pub ubuntu@<ELASTIC_IP>
 
@@ -564,6 +566,11 @@ nothing else will ever mention it.
 > SSM Session Manager, which needs no inbound rule at all. Neither is worth building
 > before the rule has actually gone stale on you once — the freshness check turns this
 > into a visible chore rather than lost backups.
+>
+> Note also that this is not a risk the backup introduces. Every other job the Pi runs
+> against the box rides on the same rule, so a changed home IP breaks those too and you
+> will hear about it from them first. If you ever do fix it, fix it once for the whole
+> SSH path rather than for the backup alone.
 
 ## 6. nginx
 ```bash
