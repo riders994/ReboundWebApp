@@ -1,0 +1,39 @@
+# Nightly Postgres dump on the EC2 box. Triggered by pg-backup.timer, not enabled
+# directly. Install to /etc/systemd/system/ — see DEPLOY.md step 5e.
+#
+#   sudo install -m 755 deploy/pg-backup.sh /usr/local/bin/pg-backup.sh
+#   sudo systemctl daemon-reload && sudo systemctl enable --now pg-backup.timer
+
+[Unit]
+Description=Dump all Postgres databases to the local backup spool
+Documentation=file:///opt/rebound-app/DEPLOY.md
+# Only meaningful once the cluster is up; if Postgres is not installed on this box
+# the unit simply fails, which is the correct and visible outcome.
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+# Runs as postgres so pg_dump authenticates over the local socket by peer auth —
+# no password, and no connection string in a unit file that `systemctl show` prints.
+User=postgres
+Group=postgres
+ExecStart=/usr/local/bin/pg-backup.sh
+
+# Dumping competes with /predict for CPU credits on a burstable t3. The work is
+# seconds at this data size, but deprioritising it costs nothing and means a future
+# database that takes minutes to dump still cannot make the site feel slow.
+Nice=10
+IOSchedulingClass=idle
+
+# The script writes to exactly one directory and reads from the cluster. Nothing
+# else on the box needs to be reachable from it.
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/postgres
+NoNewPrivileges=true
+
+[Install]
+# Not enabled directly — the timer pulls it in.
+WantedBy=multi-user.target

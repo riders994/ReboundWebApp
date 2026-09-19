@@ -23,3 +23,6 @@ scripts/publish.env
 
 # OS
 .DS_Store
+
+# Local pull config for deploy/pg-pull.sh (host, SSH key path) — never commit.
+deploy/pg-pull.env

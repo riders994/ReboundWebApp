@@ -1,0 +1,19 @@
+# Schedule for pg-pull.service, ON THE PI. Install to /etc/systemd/system/ and:
+#   sudo systemctl enable --now pg-pull.timer
+#   systemctl list-timers pg-pull.timer        # confirm the next run
+#
+# An hour after the box dumps at 03:30 UTC, so the Pi picks up the same night's work
+# rather than trailing it by a day. Persistent=true means a Pi that was powered off
+# at 04:30 pulls when it comes back instead of skipping to tomorrow — which matters
+# more here than on the box, because home hardware actually does get unplugged.
+
+[Unit]
+Description=Nightly pull of Postgres dumps from the EC2 box
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

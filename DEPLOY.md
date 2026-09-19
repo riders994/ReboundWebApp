@@ -453,6 +453,107 @@ SELECT model_commit, count(*), round(avg(latency_ms)::numeric, 2) AS avg_ms
 FROM rebound.predictions GROUP BY 1 ORDER BY 2 DESC;
 ```
 
+### 5e. Backing the database up to the Raspberry Pi *(optional, on the box + the Pi)*
+
+Everything else on this instance is reproducible: the site comes from git, the model
+bundles come from `scp`, the config comes from this file. Postgres is the first thing
+on the box that exists only here, which turns losing the instance from an afternoon of
+rebuilding into losing data. This is the step that takes that back.
+
+Two halves, one on each machine. The box dumps every database to a local spool on a
+timer; the Pi reaches in over SSH and pulls the spool down.
+
+> **The Pi pulls — the box never pushes.** The Pi is behind a home NAT, so pushing
+> would mean forwarding a port to it, giving your home network a dynamic-DNS name, and
+> putting the Pi's SSH on the internet. Pulling needs none of that, because the
+> security group already allows 22 from your home IP.
+>
+> The security argument is the stronger one, though. A push leaves a credential on a
+> public cloud box that can write to a machine on your home network — so whoever takes
+> the EC2 reaches the Pi, and can delete the backups, which is precisely what someone
+> who has taken the box would want to do. Pulling inverts it: the credential lives on
+> the trusted side, the box holds nothing that points home, and since `pg-pull.sh`
+> never passes `--delete`, nothing that happens on the box can remove a dump the Pi
+> already holds. The spool on the box is a staging area; the archive is on the Pi.
+
+**On the box** — install the script and its timer:
+```bash
+sudo install -m 755 ~/ReboundWebApp/deploy/pg-backup.sh /usr/local/bin/pg-backup.sh
+sudo cp ~/ReboundWebApp/deploy/pg-backup.{service,timer} /etc/systemd/system/
+
+# The spool: owned by postgres, group-readable by `backup` so the login user can rsync
+# it out, and never world-readable — globals.sql carries role password hashes.
+# 2750 is setgid, so every dump the timer writes inherits the group without help.
+sudo install -d -o postgres -g backup -m 2750 /var/backups/postgres
+sudo usermod -aG backup ubuntu
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now pg-backup.timer
+sudo systemctl start pg-backup.service      # don't wait until 03:30 to find out
+ls -l /var/backups/postgres/latest/
+```
+You should see `globals.sql`, one `<db>.dump` per database, and `SHA256SUMS`.
+
+> **Why it dumps every database and not just `rebound`.** This cluster is shared with
+> your other projects. A backup that only knows about the project that happened to set
+> it up is the kind whose gaps are discovered at restore time, so the script reads the
+> database list out of the cluster instead of hardcoding one. `globals.sql` matters for
+> the same reason: a `pg_dump` contains a database's contents but not the roles that own
+> it, and restoring onto a fresh cluster with no `rebound` role fails on every `GRANT`.
+
+**On the Pi** — give it a key, then install the puller:
+```bash
+# A key of its own, so it can be revoked without touching how you SSH in by hand.
+ssh-keygen -t ed25519 -f ~/.ssh/postup-backup -C 'pg-pull from the pi'
+ssh-copy-id -i ~/.ssh/postup-backup.pub ubuntu@<ELASTIC_IP>
+
+sudo install -d -o pi -g pi /srv/backups
+sudo install -o pi -g pi -m 755 pg-pull.sh /srv/backups/pg-pull.sh
+cp pg-pull.env.example /srv/backups/pg-pull.env   # then edit: host, key path
+sudo cp pg-pull.{service,timer} /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now pg-pull.timer
+/srv/backups/pg-pull.sh -n            # dry run: proves the SSH path works
+/srv/backups/pg-pull.sh               # for real
+```
+
+> **Restrict the key while you are there.** The Pi only ever needs to read one
+> directory, so on the box prefix that key's line in `~ubuntu/.ssh/authorized_keys`
+> with `command="rrsync -ro /var/backups/postgres",no-pty,no-agent-forwarding,`
+> `no-port-forwarding`. That way a compromised Pi gets a read-only view of the dumps
+> and not a shell. `rrsync` ships with rsync — `dpkg -L rsync | grep rrsync` to find
+> it, and gunzip it out of `/usr/share/doc/rsync/scripts/` if it is not on `PATH`.
+
+#### Restoring
+
+Roles first, then the database — in that order, or the grants have nothing to grant to:
+```bash
+scp pi@<pi>:/srv/backups/postuptothe/latest/{globals.sql,rebound.dump} .
+sudo -u postgres psql -f globals.sql                  # roles + passwords
+sudo -u postgres createdb rebound --owner rebound     # only if the database is gone
+sudo -u postgres pg_restore -d rebound --clean --if-exists rebound.dump
+```
+
+> **Rehearse it once, now, while nothing is wrong.** Restore the newest dump into a
+> scratch database (`createdb restore_test`, `pg_restore -d restore_test`, count the
+> rows, `dropdb restore_test`) the day you set this up. Until a dump has been read back
+> it is a file that is the right size, which is not the same thing as a backup.
+
+#### When it breaks
+
+`pg-pull.sh` exits non-zero on a failed transfer, a checksum mismatch, or a spool that
+has stopped being refreshed — so the unit goes to `failed` and `systemctl --failed` on
+the Pi is where this reports. Worth an `OnFailure=` notifier if you have one, because
+nothing else will ever mention it.
+
+| symptom | cause |
+|---|---|
+| `Connection timed out` | your home IP changed — update the SSH rule in the security group |
+| `Permission denied` reading the spool | `usermod -aG backup ubuntu` needs a fresh login to take effect |
+| `newest dump is Nd old` | the transfer is fine; `pg-backup.timer` on the box is not — `systemctl status pg-backup` there |
+| `checksum mismatch` on an *old* dump | SD-card rot on the Pi, not a transfer fault. That dump is gone; the others are checked every night for the same reason |
+
 ## 6. nginx
 ```bash
 sudo cp ~/ReboundWebApp/deploy/nginx.conf /etc/nginx/sites-available/postuptothe

@@ -1,0 +1,21 @@
+# Schedule for pg-backup.service. Install to /etc/systemd/system/ and:
+#   sudo systemctl enable --now pg-backup.timer
+#   systemctl list-timers pg-backup.timer      # confirm the next run
+#
+# Runs before the Pi's pull (pg-pull.timer, 04:30 UTC) so the Pi always finds a dump
+# from the same night rather than one from the night before.
+
+[Unit]
+Description=Nightly Postgres dump
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+# Spread the start over 5 minutes. Matters less on one box than it would on a fleet,
+# but it also means a dump and a certbot renewal never start on the same second.
+RandomizedDelaySec=5m
+# If the box was off or asleep at 03:30, dump on the next boot rather than skipping
+# the day silently.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

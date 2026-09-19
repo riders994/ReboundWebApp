@@ -1,0 +1,34 @@
+# Nightly pull of the EC2 box's Postgres dumps onto the Raspberry Pi. Triggered by
+# pg-pull.timer, not enabled directly. Install to /etc/systemd/system/ ON THE PI —
+# see DEPLOY.md step 5e.
+#
+# Set User= to whoever owns the SSH key that reaches the box, and adjust the paths
+# to match where you put the script and its env file.
+
+[Unit]
+Description=Pull Postgres dumps from the EC2 box
+Documentation=file:///srv/backups/pg-pull.sh
+# No point starting before the Pi has a route out.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/srv/backups/pg-pull.sh
+
+# The script exits non-zero on a failed transfer, a checksum mismatch, or a spool
+# that has stopped being refreshed on the box. That marks the unit failed, which is
+# what `systemctl --failed` and `systemctl status pg-pull.timer` report — the only
+# thing that will ever tell you this stopped working, since a backup nobody restores
+# gives no other sign. Wire OnFailure= to a notifier here if you want to be told.
+
+# Home directory stays readable: the SSH key normally lives in ~/.ssh.
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/srv/backups
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
