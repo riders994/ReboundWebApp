@@ -152,7 +152,8 @@ commit matches exactly what goes live. Nothing to commit is fine (it skips); a f
 warns but still publishes. Override the message with `PUBLISH_COMMIT_MSG="…" ./scripts/publish.sh -c`.
 
 It runs the same generators as `serve.sh`, then `rsync -a --delete site/` into the web root
-over SSH. This covers the **static site only**; the rebound Flask backend + model are
+over SSH. Working on the box itself, `./scripts/refresh-site.sh` does the same thing locally
+from the box's clone (`-p` pulls first, `-n` is a dry run). This covers the **static site only**; the rebound Flask backend + model are
 deployed separately (see `DEPLOY.md`).
 
 **One-time setup:**

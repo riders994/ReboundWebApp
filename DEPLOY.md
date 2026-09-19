@@ -734,6 +734,10 @@ sudo rsync -a --delete site/ /var/www/site/
 sudo rsync -a rebound-app/ /opt/rebound-app/ --exclude venv --exclude models
 sudo systemctl restart rebound
 ```
+For the static half alone - new feed images, a tagged clip, an edited README - run
+`./scripts/refresh-site.sh` (`-p` to pull first, `-n` for a dry run). It is the three
+static lines above plus the `chown`.
+
 > **The pull on its own changes nothing the service sees.** The clone in `~/ReboundWebApp`
 > is a staging copy; the service runs from `/opt/rebound-app` (step 5a) and nginx serves
 > `/var/www/site` (step 4). The `rsync` lines are what actually deploy, and the restart is
