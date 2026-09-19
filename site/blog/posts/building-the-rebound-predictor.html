@@ -100,7 +100,7 @@ bundle, so there is no second file to keep in step with the weights.</p>
 </tr>
 </tbody>
 </table></div>
-<p>See <a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/data/MANIFEST.md" rel="noopener"><code>data/MANIFEST.md</code></a>. The SportVU feed was withdrawn in 2016
+<p>See <a href="https://github.com/riders994/ReboundingPrediction/blob/HEAD/data/MANIFEST.md" rel="noopener"><code>data/MANIFEST.md</code></a>. The SportVU feed was withdrawn in 2016
 and the NBA moved to Second Spectrum in 2017-18, so this corpus cannot be extended —
 about 60k rebounds is the hard ceiling, which constrains how large a model is
 sensible.</p>
@@ -108,7 +108,7 @@ sensible.</p>
 accepts the connection and holds it open until timeout, from a logged-in browser
 session as readily as from a script. Its siblings are gone as well — <code>data.nba.net</code>
 does not resolve and <code>cdn.nba.com</code>'s live feed 403s a 2015-16 game. Events now come
-from Basketball-Reference via <a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/rebounding/data/bref.py" rel="noopener"><code>rebounding/data/bref.py</code></a>,
+from Basketball-Reference via <a href="https://github.com/riders994/ReboundingPrediction/blob/HEAD/rebounding/data/bref.py" rel="noopener"><code>rebounding/data/bref.py</code></a>,
 which emits the same frame the NBA feed did, so pairing and everything after it are
 unchanged. <code>pbp.py</code> keeps the parsing and pairing but no longer fetches: its
 <code>fetch()</code> reads the disk cache and raises on a miss.</p>
@@ -452,7 +452,7 @@ original pipeline described a player on his own — his coordinates, his distanc
 rim, his angle. Rebounding is a contest between ten people, so the quantities that
 decide it are comparisons: who is inside whom, who has space, how a player ranks
 against the other nine rather than how many feet he stands from the basket.
-<a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/rebounding/data/derived.py" rel="noopener"><code>rebounding/data/derived.py</code></a> adds those, and they are a
+<a href="https://github.com/riders994/ReboundingPrediction/blob/HEAD/rebounding/data/derived.py" rel="noopener"><code>rebounding/data/derived.py</code></a> adds those, and they are a
 pure function of the ten positions, so the web app can compute every one of them from
 what a user already places on the court.</p>
 <p>The importance ranking makes the point better than the accuracy table does. In the
@@ -485,11 +485,11 @@ to answer "which of these ten", on the same release-time features:</p>
 </tbody>
 </table></div>
 <p>which is the ordering
-<a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/rebounding/models/conditional_logit.py" rel="noopener"><code>conditional_logit.py</code></a> predicts: a per-row
+<a href="https://github.com/riders994/ReboundingPrediction/blob/HEAD/rebounding/models/conditional_logit.py" rel="noopener"><code>conditional_logit.py</code></a> predicts: a per-row
 binary fit never sees the constraint that exactly one of the ten is the rebounder, and
 <code>lambdarank</code> optimises a ranking surrogate rather than the likelihood. Matching the
 loss to the metric is worth about a point.
-<a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/rebounding/models/boosted.py" rel="noopener"><code>boosted.py</code></a> is that grouped softmax with a tree
+<a href="https://github.com/riders994/ReboundingPrediction/blob/HEAD/rebounding/models/boosted.py" rel="noopener"><code>boosted.py</code></a> is that grouped softmax with a tree
 ensemble for a score function.</p>
 <p><strong>Velocity is worth less than it looks, and says something.</strong> Over a shot's flight
 players travel 7.67 ft on average. Extrapolating each along his release velocity lands
@@ -814,7 +814,7 @@ of an honest model that never had the feature.</p>
 proposes for the movement model, applied to the rebounder, and on 27k training shots
 it matches gradient boosting rather than beating it. Depth tells the same story from
 the other direction: 127 leaves scored a point <em>worse</em> than 63 at every learning rate
-tried. The corpus cannot grow — see <a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/data/MANIFEST.md" rel="noopener"><code>data/MANIFEST.md</code></a> — so this is
+tried. The corpus cannot grow — see <a href="https://github.com/riders994/ReboundingPrediction/blob/HEAD/data/MANIFEST.md" rel="noopener"><code>data/MANIFEST.md</code></a> — so this is
 a standing constraint, not a tuning accident. Capacity is not what is missing.</p>
 <p>What is missing is more likely information. Nothing in the current feature set knows
 the ball: its arc, its entry angle, where it actually caroms. Those need a rebuild of
@@ -848,7 +848,7 @@ set-transformer encoder, sampling coherent futures rather than one averaged gues
 results above bear on it. Its accuracy budget is 6.0 points and shrinking, so it should
 be justified as a UI feature — the predicted movement is what the app draws — rather
 than as an accuracy device; that argument is made in
-<a href="https://github.com/riders994/ReboundingPrediction/blob/modernize-py3/docs/webapp-handoff.md" rel="noopener"><code>docs/webapp-handoff.md</code></a>. And the fact that constant-velocity
+<a href="https://github.com/riders994/ReboundingPrediction/blob/HEAD/docs/webapp-handoff.md" rel="noopener"><code>docs/webapp-handoff.md</code></a>. And the fact that constant-velocity
 extrapolation is worse than assuming nobody moves says the problem it has to solve is
 real, not a matter of arithmetic on a heading.</p>
 <h2>Credits</h2>
