@@ -2,12 +2,10 @@
 # pg-pull.timer, not enabled directly. Install to /etc/systemd/system/ ON THE PI —
 # see DEPLOY.md step 5e.
 #
-# Set User=/Group= to whoever owns the SSH key that reaches the box, and adjust the
-# paths to match where you put the script and its env file. `pi` below is a guess:
-# Raspberry Pi OS stopped creating a default `pi` user in Bookworm, so on a recent
-# image it is whatever name you chose when you flashed the card. A User= that does
-# not exist fails the unit at start with a "Failed to determine user credentials"
-# that does not obviously point at this line.
+# User=/Group= is the Pi's login user, which owns the SSH key that reaches the box.
+# If that ever changes, change it here too: a User= that does not exist fails the
+# unit at start with a "Failed to determine user credentials" that does not
+# obviously point at this line.
 
 [Unit]
 Description=Pull Postgres dumps from the EC2 box
@@ -18,8 +16,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=pi
-Group=pi
+User=piders994
+Group=piders994
 ExecStart=/srv/backups/pg-pull.sh
 
 # The script exits non-zero on a failed transfer, a checksum mismatch, or a spool

@@ -536,11 +536,9 @@ You should see `globals.sql`, one `<db>.dump` per database, and `SHA256SUMS`.
 ssh-keygen -t ed25519 -f ~/.ssh/postup-backup -C 'pg-pull from the pi'
 ssh-copy-id -i ~/.ssh/postup-backup.pub ubuntu@<ELASTIC_IP>
 
-sudo install -d -o pi -g pi /srv/backups
-sudo install -o pi -g pi -m 755 pg-pull.sh /srv/backups/pg-pull.sh
+sudo install -d -o piders994 -g piders994 /srv/backups
+sudo install -o piders994 -g piders994 -m 755 pg-pull.sh /srv/backups/pg-pull.sh
 cp pg-pull.env.example /srv/backups/pg-pull.env   # then edit: host, key path
-# Edit User=/Group= in pg-pull.service first — `pi` is a guess, and Raspberry Pi OS
-# has not created that user by default since Bookworm.
 sudo cp pg-pull.{service,timer} /etc/systemd/system/
 
 # By hand BEFORE enabling the timer: proves the SSH path, and lets ssh record the
@@ -578,7 +576,7 @@ systemctl is-failed pg-pull.service     # `inactive` is success for a oneshot
 
 Roles first, then the database — in that order, or the grants have nothing to grant to:
 ```bash
-scp pi@<pi>:/srv/backups/postuptothe/latest/{globals.sql,rebound.dump} .
+scp piders994@<pi>:/srv/backups/postuptothe/latest/{globals.sql,rebound.dump} .
 sudo -u postgres psql -f globals.sql                  # roles + passwords
 sudo -u postgres createdb rebound --owner rebound     # only if the database is gone
 sudo -u postgres pg_restore -d rebound --clean --if-exists rebound.dump
