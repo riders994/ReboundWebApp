@@ -367,6 +367,33 @@ test score — which is the only way to identify weights that never enter git:
 
 ### 5d. Prediction logging *(optional, on the box)*
 
+> **First check the box is running code that has this.** Telemetry, the `psycopg`
+> dependency and the `EnvironmentFile=` line that reads the connection string all
+> arrived together in `3b6b181`, so on a box deployed before that, every step below
+> appears to succeed and none of it does anything: the old unit ignores
+> `/etc/rebound/telemetry.env` because it has no line reading it, the old code has no
+> telemetry module, and the venv has no driver. `/healthz` simply has no `telemetry`
+> key, which is the symptom rather than a message about it.
+>
+> ```bash
+> curl -s localhost:8000/healthz | grep -q telemetry && echo "current" || echo "REDEPLOY FIRST"
+> ```
+>
+> If it says redeploy, do all three — "Redeploying after changes" covers them, but they
+> are easy to half-do because the usual block deliberately skips the last two:
+>
+> ```bash
+> cd ~/ReboundWebApp && git pull
+> sudo rsync -a rebound-app/ /opt/rebound-app/ --exclude venv --exclude models  # the code
+> /opt/rebound-app/venv/bin/pip install -r /opt/rebound-app/requirements.txt    # psycopg
+> sudo cp deploy/rebound.service /etc/systemd/system/rebound.service            # EnvironmentFile=
+> sudo systemctl daemon-reload && sudo systemctl restart rebound
+> curl -s localhost:8000/healthz | python3 -m json.tool   # expect "telemetry": {"sink": "none", …}
+> ```
+>
+> `"sink": "none"` at this point is correct — the database does not exist yet. That is
+> what the rest of this step builds, and it is the thing to see before going on.
+
 Off by default: with no `REBOUND_DATABASE_URL` the app never imports a database driver
 and behaves exactly as it did before this existed. Turn it on and every **served**
 prediction becomes a row — the ten placements the model was given, the probabilities it
