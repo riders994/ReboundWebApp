@@ -512,13 +512,33 @@ ssh-copy-id -i ~/.ssh/postup-backup.pub ubuntu@<ELASTIC_IP>
 sudo install -d -o pi -g pi /srv/backups
 sudo install -o pi -g pi -m 755 pg-pull.sh /srv/backups/pg-pull.sh
 cp pg-pull.env.example /srv/backups/pg-pull.env   # then edit: host, key path
+# Edit User=/Group= in pg-pull.service first — `pi` is a guess, and Raspberry Pi OS
+# has not created that user by default since Bookworm.
 sudo cp pg-pull.{service,timer} /etc/systemd/system/
+
+# By hand BEFORE enabling the timer: proves the SSH path, and lets ssh record the
+# host key while $HOME is still writable (the unit's sandbox makes it read-only).
+/srv/backups/pg-pull.sh -n            # dry run, transfers nothing
+/srv/backups/pg-pull.sh               # for real
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now pg-pull.timer
-/srv/backups/pg-pull.sh -n            # dry run: proves the SSH path works
-/srv/backups/pg-pull.sh               # for real
 ```
+
+Confirm it is actually scheduled — enabling a timer and never checking it fired is the
+usual way these quietly do nothing:
+```bash
+systemctl list-timers pg-pull.timer     # NEXT/LEFT columns, and LAST once it has run
+sudo systemctl start pg-pull.service    # force one now, as the timer would
+journalctl -u pg-pull.service -n 20     # what it did
+systemctl is-failed pg-pull.service     # `inactive` is success for a oneshot
+```
+
+> **`Persistent=true` is doing real work on home hardware.** A Pi that was unplugged
+> at 04:30 UTC runs the pull once it is back up instead of skipping to tomorrow. This
+> is the main reason these are systemd timers and not crontab lines — cron simply
+> drops a job whose moment passed while the machine was off, and the freshness check
+> would then start complaining about a box that is perfectly healthy.
 
 > **Restrict the key while you are there.** The Pi only ever needs to read one
 > directory, so on the box prefix that key's line in `~ubuntu/.ssh/authorized_keys`

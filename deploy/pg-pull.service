@@ -2,8 +2,12 @@
 # pg-pull.timer, not enabled directly. Install to /etc/systemd/system/ ON THE PI —
 # see DEPLOY.md step 5e.
 #
-# Set User= to whoever owns the SSH key that reaches the box, and adjust the paths
-# to match where you put the script and its env file.
+# Set User=/Group= to whoever owns the SSH key that reaches the box, and adjust the
+# paths to match where you put the script and its env file. `pi` below is a guess:
+# Raspberry Pi OS stopped creating a default `pi` user in Bookworm, so on a recent
+# image it is whatever name you chose when you flashed the card. A User= that does
+# not exist fails the unit at start with a "Failed to determine user credentials"
+# that does not obviously point at this line.
 
 [Unit]
 Description=Pull Postgres dumps from the EC2 box
@@ -24,7 +28,15 @@ ExecStart=/srv/backups/pg-pull.sh
 # thing that will ever tell you this stopped working, since a backup nobody restores
 # gives no other sign. Wire OnFailure= to a notifier here if you want to be told.
 
-# Home directory stays readable: the SSH key normally lives in ~/.ssh.
+# ProtectSystem=strict leaves $HOME *readable* — which is all that is needed, since
+# the SSH key in ~/.ssh only has to be read — but not writable. The one thing that
+# wants to write there is ssh recording a new host key in ~/.ssh/known_hosts, so run
+# the script by hand once before enabling the timer (DEPLOY.md step 5e has you do
+# exactly that with -n) and let that populate it. Skipping the by-hand run does not
+# break the pull: StrictHostKeyChecking=accept-new warns that it could not record the
+# key and continues. It just means the host is never pinned, so the check silently
+# becomes worthless — which is the failure worth avoiding, since nothing complains.
+# If the Pi already SSHes to the box for other jobs, known_hosts is already correct.
 PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths=/srv/backups
