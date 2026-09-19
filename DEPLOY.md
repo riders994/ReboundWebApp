@@ -554,6 +554,17 @@ nothing else will ever mention it.
 | `newest dump is Nd old` | the transfer is fine; `pg-backup.timer` on the box is not — `systemctl status pg-backup` there |
 | `checksum mismatch` on an *old* dump | SD-card rot on the Pi, not a transfer fault. That dump is gone; the others are checked every night for the same reason |
 
+> **An `~/.ssh/config` alias does not fix the timeout**, though it is worth having for
+> the key and user. The alias names the *destination*, and the destination is an Elastic
+> IP that never changes. What breaks is an inbound rule on the box keyed on the
+> *source* — your home address — which nothing on the Pi can influence. Widening the
+> rule to `0.0.0.0/0` trades a chore for a permanently internet-exposed SSH port; the
+> real fixes are to give the two machines an overlay address (Tailscale or WireGuard,
+> after which port 22 can be closed to the world entirely) or to reach the box over
+> SSM Session Manager, which needs no inbound rule at all. Neither is worth building
+> before the rule has actually gone stale on you once — the freshness check turns this
+> into a visible chore rather than lost backups.
+
 ## 6. nginx
 ```bash
 sudo cp ~/ReboundWebApp/deploy/nginx.conf /etc/nginx/sites-available/postuptothe

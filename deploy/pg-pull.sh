@@ -47,7 +47,10 @@ done
 [ -f "$SELF/pg-pull.env" ] && . "$SELF/pg-pull.env"
 
 PG_PULL_HOST="${PG_PULL_HOST:-}"
-PG_PULL_USER="${PG_PULL_USER:-ubuntu}"
+# No colon in the default, so an explicitly empty PG_PULL_USER= is honoured rather
+# than falling back: that is how you hand the whole connection to an ~/.ssh/config
+# Host block and let User, IdentityFile and the rest come from there.
+PG_PULL_USER="${PG_PULL_USER-ubuntu}"
 PG_PULL_KEY="${PG_PULL_KEY:-}"
 PG_PULL_REMOTE="${PG_PULL_REMOTE:-/var/backups/postgres}"
 PG_PULL_DEST="${PG_PULL_DEST:-/srv/backups/postuptothe}"
@@ -71,9 +74,14 @@ log() { echo "[pg-pull] $*"; }
 SSH_CMD="ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new"
 [ -n "$PG_PULL_KEY" ] && SSH_CMD="$SSH_CMD -i $PG_PULL_KEY"
 
+# Prefixing user@ unconditionally would override a Host block's User, so an empty
+# PG_PULL_USER addresses the host bare and ssh resolves everything itself.
+TARGET="$PG_PULL_HOST"
+[ -n "$PG_PULL_USER" ] && TARGET="$PG_PULL_USER@$PG_PULL_HOST"
+
 mkdir -p "$PG_PULL_DEST"
 
-log "$PG_PULL_USER@$PG_PULL_HOST:$PG_PULL_REMOTE/ -> $PG_PULL_DEST/"
+log "$TARGET:$PG_PULL_REMOTE/ -> $PG_PULL_DEST/"
 
 # No --delete, deliberately: see the header. No -z either — .dump files are already
 # compressed, so it would spend Pi CPU to save nothing.
@@ -81,7 +89,7 @@ rsync -a --human-readable --stats \
       "${DRY[@]}" "${VERBOSE[@]}" \
       --exclude='.partial-*' \
       -e "$SSH_CMD" \
-      "$PG_PULL_USER@$PG_PULL_HOST:$PG_PULL_REMOTE/" "$PG_PULL_DEST/"
+      "$TARGET:$PG_PULL_REMOTE/" "$PG_PULL_DEST/"
 
 if [ "${#DRY[@]}" -gt 0 ]; then
   log "dry run — nothing verified, nothing pruned"
