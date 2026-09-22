@@ -845,32 +845,36 @@ before=$(git rev-parse HEAD)
 # itself is plain HTTPS on a public repo, so nothing here needs an ssh-agent.
 export GIT_TERMINAL_PROMPT=0
 
-if ! timeout 60 git fetch --quiet origin "$BRANCH"; then
-    echo "fetch failed — starting $before as it is"
-    exit 0
-fi
-
-if ! git -c advice.diverging=false merge --ff-only --quiet "origin/$BRANCH"; then
-    echo "not a fast-forward (local commits, or a dirty tree) — starting $before"
-    exit 0
+if timeout 60 git fetch --quiet origin "$BRANCH"; then
+    if ! git -c advice.diverging=false merge --ff-only --quiet "origin/$BRANCH"; then
+        echo "not a fast-forward (local commits, or a dirty tree) — staying on $before"
+    fi
+else
+    echo "fetch failed — staying on $before"
 fi
 
 after=$(git rev-parse HEAD)
 if [[ "$before" == "$after" ]]; then
-    echo "already current at $after"
-    exit 0
+    echo "checkout unchanged at $after"
+else
+    echo "updated $before -> $after"
 fi
-echo "updated $before -> $after"
 
 republish() {
     ./scripts/refresh-site.sh
     rsync -a "$REPO/rebound-app/" /opt/rebound-app/ --exclude venv --exclude models
 }
+
+# Always republish, even when the checkout didn't just move. /var/www/site and
+# /opt/rebound-app are a separate staging target from this checkout and can drift from
+# it -- a manual `git pull` here with no rsync is exactly that -- so "HEAD is unchanged"
+# is not the same claim as "the served copies already match HEAD". Both steps are cheap
+# and idempotent, so there's no real cost to running them on every restart.
 republish
 
-# Only reinstall dependencies when the file describing them actually changed — a normal
-# deploy is a fetch, a fast-forward and a republish, nothing more.
-if ! git diff --quiet "$before" "$after" -- rebound-app/requirements.txt; then
+# Only reinstall dependencies when the fetch above actually moved HEAD and the file
+# describing them changed within that move.
+if [[ "$before" != "$after" ]] && ! git diff --quiet "$before" "$after" -- rebound-app/requirements.txt; then
     echo "requirements.txt changed — resyncing venv"
     if ! "$PIP" install -r /opt/rebound-app/requirements.txt; then
         echo "pip install failed — rolling back to $before and starting that"
@@ -894,12 +898,19 @@ a merge, or a conflict, inside a systemd start. `--ff-only` refuses instead, and
 refusal is logged and survivable — "not a fast-forward" in the journal tells you a local
 edit is why the deploy didn't take.
 
-**`republish` runs twice on a rollback.** Unlike `home-site` (which runs in place from a
-single checkout, so `git reset --hard` alone is enough), this app's checkout is a staging
-copy — what's actually served lives in `/var/www/site` and `/opt/rebound-app`. A rollback
-that only resets the checkout would leave those two directories holding the *new*,
-dependency-broken code while git says otherwise. Re-running `republish` after the reset is
-what makes the served copies match the commit gunicorn is about to start.
+**`republish` always runs, not just when the fetch moved HEAD.** Unlike `home-site`
+(which runs in place from a single checkout, so an unmoved `HEAD` really does mean nothing
+to do), this app's checkout is a staging copy — what's actually served lives in
+`/var/www/site` and `/opt/rebound-app`, and those can drift from the checkout on their own
+(a `git pull` run by hand with no rsync is exactly that, and is called out above as *the*
+easy mistake). Skipping the republish whenever this run's fetch found nothing new would
+mean that drift never gets corrected. `refresh-site.sh` and the backend `rsync` only copy
+what changed, so running them unconditionally costs a few seconds, not a full redeploy.
+
+**`republish` also runs twice on a rollback**, for the same reason. A rollback that only
+resets the checkout would leave those two directories holding the *new*, dependency-broken
+code while git says otherwise. Re-running `republish` after the reset is what makes the
+served copies match the commit gunicorn is about to start.
 
 **The `git diff` guard on `requirements.txt`.** Running `pip install` on every start would
 add time to do nothing when only static content or unrelated code changed. Gating it on
