@@ -8,14 +8,22 @@
 # The unit refuses to start without the rebounder (REBOUND_REQUIRE_MODEL defaults to
 # on) rather than serving 503s that nobody notices. Confirm what is live with:
 #   curl -s localhost:8000/healthz
+#
+# ExecStartPre fast-forwards ~/ReboundWebApp and republishes site/ + rebound-app/ before
+# every start, so a plain restart (including the one after a reboot) is a deploy. See
+# "Update the checkout on restart" below for the script and why it's shaped this way.
+# The leading `-` means a missing or failing script is a no-op, not a failed start.
 
 [Unit]
 Description=Rebound predictor (gunicorn)
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 User=ubuntu
 WorkingDirectory=/opt/rebound-app
+ExecStartPre=-/usr/local/bin/rebound-update
+TimeoutStartSec=300
 Environment="PORT=8000"
 # Movement model is optional and fail-soft; set to 0 to serve probabilities only
 # and leave every player where he was placed.

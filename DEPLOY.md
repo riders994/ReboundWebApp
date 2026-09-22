@@ -794,6 +794,138 @@ ubuntu ALL=(root) NOPASSWD: /usr/bin/rsync, /usr/bin/chown
 See `scripts/README.md` for the full options (`-n` dry run, `-v` verbose). The backend is
 still deployed with the git-pull block above.
 
+## Update the checkout on restart
+
+Everything above is manual. `deploy/rebound.service` also carries
+`ExecStartPre=-/usr/local/bin/rebound-update`, which — once the script below exists —
+fast-forwards `~/ReboundWebApp` and republishes `site/` and `rebound-app/` **before every
+start**. That makes `sudo systemctl restart rebound` a deploy: no `cd`, no `git pull`, no
+rsync to remember. It also means a plain instance reboot deploys, since `rebound.service`
+is `enabled` and starts on boot.
+
+This mirrors the same pattern documented for `home-site` and its own service on the Pi
+(`home-site`'s `docs/maintenance.md`, "Update the checkout on restart") — same shape, same
+reasoning, adapted for this app's two-directory layout (a staging checkout plus the
+directories actually served). One difference matters: that Pi setup currently can't
+actually pull, because its deploy key is passphrase-protected with no `ssh-agent` at boot.
+This repo's EC2 checkout clones over **plain HTTPS** (public repo, no deploy key), so
+`git fetch` here needs no agent and just works.
+
+The leading `-` on `ExecStartPre` means a missing or failing script is a no-op, not a
+failed start — the unit works with or without this in place. Skip this section if you'd
+rather deploy by hand.
+
+As with `home-site-update`, the naive version of this (`ExecStartPre=git pull`) is worse
+than nothing: **a failed `ExecStartPre` fails the whole unit** by default, so a plain pull
+in front of the service means GitHub being unreachable stops the site from starting even
+though a working checkout is sitting right there. And `ExecStartPre` runs on *every*
+start, including the automatic ones from `Restart=on-failure` — so a crash-looping backend
+would keep re-fetching, and a bad commit that crashes on boot would keep getting pulled
+back in rather than leaving the last good code running. The script below never exits
+non-zero for exactly this reason.
+
+**[ EC2 ]** — `/usr/local/bin/rebound-update`
+
+```sh
+#!/usr/bin/env bash
+# Fast-forward ~/ReboundWebApp and republish site/ + rebound-app/ before the backend
+# starts. Exits 0 unconditionally — every failure here means "start what's already
+# live", which is always better than not starting: an unreachable GitHub at boot must
+# not be able to keep the site down.
+set -uo pipefail
+
+REPO=/home/ubuntu/ReboundWebApp
+BRANCH=primary
+PIP=/opt/rebound-app/venv/bin/pip
+
+cd "$REPO" || exit 0
+before=$(git rev-parse HEAD)
+
+# GIT_TERMINAL_PROMPT=0 stops a stray auth prompt from hanging the start; the remote
+# itself is plain HTTPS on a public repo, so nothing here needs an ssh-agent.
+export GIT_TERMINAL_PROMPT=0
+
+if ! timeout 60 git fetch --quiet origin "$BRANCH"; then
+    echo "fetch failed — starting $before as it is"
+    exit 0
+fi
+
+if ! git -c advice.diverging=false merge --ff-only --quiet "origin/$BRANCH"; then
+    echo "not a fast-forward (local commits, or a dirty tree) — starting $before"
+    exit 0
+fi
+
+after=$(git rev-parse HEAD)
+if [[ "$before" == "$after" ]]; then
+    echo "already current at $after"
+    exit 0
+fi
+echo "updated $before -> $after"
+
+republish() {
+    ./scripts/refresh-site.sh
+    rsync -a "$REPO/rebound-app/" /opt/rebound-app/ --exclude venv --exclude models
+}
+republish
+
+# Only reinstall dependencies when the file describing them actually changed — a normal
+# deploy is a fetch, a fast-forward and a republish, nothing more.
+if ! git diff --quiet "$before" "$after" -- rebound-app/requirements.txt; then
+    echo "requirements.txt changed — resyncing venv"
+    if ! "$PIP" install -r /opt/rebound-app/requirements.txt; then
+        echo "pip install failed — rolling back to $before and starting that"
+        git reset --hard --quiet "$before"
+        republish
+    fi
+fi
+exit 0
+```
+
+```sh
+sudo install -o root -g root -m 755 rebound-update /usr/local/bin/rebound-update
+sudo systemctl daemon-reload   # picks up ExecStartPre if you added it after installing the unit
+```
+
+The pieces that matter, briefly — see `home-site`'s writeup for the fuller version of the
+same reasoning:
+
+**`git merge --ff-only`, not `git pull`.** A plain pull on a diverged branch drops you into
+a merge, or a conflict, inside a systemd start. `--ff-only` refuses instead, and the
+refusal is logged and survivable — "not a fast-forward" in the journal tells you a local
+edit is why the deploy didn't take.
+
+**`republish` runs twice on a rollback.** Unlike `home-site` (which runs in place from a
+single checkout, so `git reset --hard` alone is enough), this app's checkout is a staging
+copy — what's actually served lives in `/var/www/site` and `/opt/rebound-app`. A rollback
+that only resets the checkout would leave those two directories holding the *new*,
+dependency-broken code while git says otherwise. Re-running `republish` after the reset is
+what makes the served copies match the commit gunicorn is about to start.
+
+**The `git diff` guard on `requirements.txt`.** Running `pip install` on every start would
+add time to do nothing when only static content or unrelated code changed. Gating it on
+the one file that actually describes the environment means a normal deploy is a fetch, a
+fast-forward and a republish — `pip install` only runs when a dependency actually moved.
+
+**`PIP` as an absolute path.** Systemd units don't source `.bashrc`, so `PATH` here is the
+bare systemd default and doesn't include the venv. Same reason `ExecStart` in the unit
+spells out the full path to `gunicorn` rather than relying on an activated venv.
+
+**`TimeoutStartSec=300`**, already added to the unit. The default is 90 seconds and covers
+`ExecStartPre` plus `ExecStart` together; a cold `pip install` that has to download
+packages can blow through that and get killed mid-install, leaving exactly the broken venv
+the rollback exists to prevent.
+
+Check it end to end before relying on it:
+```sh
+sudo systemctl restart rebound
+journalctl -u rebound -n 30 --no-pager | grep -E 'updated|current|failed|rolling'
+curl -s localhost:8000/healthz    # confirm the commit reported matches $after
+```
+
+Doesn't cover, same as the manual block above: new model bundles (`models/*.pkl`, gitignored
+— still copied in by hand per step 5b) or a changed `deploy/rebound.service` itself
+(`sudo cp` + `daemon-reload`, same as always — a changed unit can't apply itself).
+
 ## The model files
 Both bundles are gitignored and never in the repo. Build them in the
 **ReboundingPrediction** repo (`python -m rebounding.cli train` / `train-movement`) and
